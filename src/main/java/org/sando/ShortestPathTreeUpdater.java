@@ -54,28 +54,17 @@ public class ShortestPathTreeUpdater<K> {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
                 return;
             }
-            if (!endVertex.hasSuccessor()) {
-                // 说明变动的是最短路径的最后一条边，不会影响最短路径上的节点
-                endVertex.changeDistance(diff);
-                return;
-            }
-            // 候选节点(节点集合N), 最短路径上的节点一定不会重复
-            Set<BaseDijkVertex<K>> waitSelect = new HashSet<>();
             // 递归收集后继节点，并更新最短路径值
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
-                waitSelect.add(vertex);
-                vertex.waitSelect = true;
+                vertex.markWaitSelect();
             });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectConnectInEdge(queueWrapper, endVertex);
             step5(queueWrapper);
-            waitSelect.forEach(dVertex -> {
-                // 还原供下次权重变更时使用
-                dVertex.waitSelect = false;
-            });
         } else {
             // 权重减少
         }
+        vertexMap = null;
     }
 
     /**
@@ -86,7 +75,7 @@ public class ShortestPathTreeUpdater<K> {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
             poll.end.changePrevious(poll.start);
-            poll.end.waitSelect = false;
+            poll.end.resetWaitSelectAndEdgeDiff();
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
 //                if (vertex.minEdgeDiff != poll) {
 //                    throw new IllegalStateException();
@@ -99,14 +88,14 @@ public class ShortestPathTreeUpdater<K> {
                         queueWrapper.removeEdgeDiff(kEdgeDiff, true);
                     });
                 }
-                vertex.waitSelect = false;
+                vertex.resetWaitSelectAndEdgeDiff();
             });
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
                 Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
                 for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
                     BaseDijkVertex<K> end = vertexMap.get(entry.getKey());
                     IEdge<K> edge = entry.getValue();
-                    if (!end.waitSelect) {
+                    if (!end.isWaitSelect()) {
                         LOGGER.debug("出边{}的终点:{}非候选节点，跳过", edge, end);
                         continue;
                     }
@@ -146,7 +135,7 @@ public class ShortestPathTreeUpdater<K> {
                 if (start.getPrevious() == null) {
                     continue;
                 }
-                if (start.waitSelect) {
+                if (start.isWaitSelect()) {
                     continue;
                 }
                 long distanceNew = start.getDistance() + entry.getValue().getWeight();
@@ -173,7 +162,7 @@ public class ShortestPathTreeUpdater<K> {
             Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
             for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
                 BaseDijkVertex<K> end = vertexMap.get(entry.getKey());
-                if (!end.waitSelect) {
+                if (!end.isWaitSelect()) {
                     continue;
                 }
                 long distanceNew = vertex.getDistance() + entry.getValue().getWeight();
@@ -183,7 +172,7 @@ public class ShortestPathTreeUpdater<K> {
                     queueWrapper.offer(new EdgeDiff<>(vertex, end, diff));
                 }
             }
-        }, vertex -> vertex.waitSelect);
+        }, vertex -> vertex.isWaitSelect());
     }
 
     private void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
@@ -217,6 +206,30 @@ public class ShortestPathTreeUpdater<K> {
             vertexConsumer.accept(vertex);
             handleSuccessorRecursive(vertex, vertexConsumer, stopRecursive);
         });
+    }
+
+    public boolean checkAllReset() {
+        Map<K, ? extends BaseDijkVertex<K>> vertexMap;
+        if (!pathTree.complete) {
+            ShortestPathTree<K>.DijkHeapWrapper heapWrapper = pathTree.heapWrapper;
+            if (heapWrapper == null) {
+                // 意味着当前最短路径树还是空的
+                return true;
+            }
+            vertexMap = heapWrapper.map;
+        } else {
+            vertexMap = pathTree.vertexMap;
+        }
+        for (BaseDijkVertex<K> kBaseDijkVertex : vertexMap.values()) {
+            boolean waitSelect = kBaseDijkVertex.isWaitSelect();
+            if (waitSelect) {
+                return false;
+            }
+            if (kBaseDijkVertex.minEdgeDiff != null) {
+                return false;
+            }
+        }
+        return true;
     }
 
 

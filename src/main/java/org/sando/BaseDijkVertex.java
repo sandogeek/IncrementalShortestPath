@@ -23,9 +23,8 @@ public abstract class BaseDijkVertex<K> {
     private List<BaseDijkVertex<K>> successorVertexList;
     /**
      * 是否是候选节点，边的权重发生变化时使用
-     * black:false white:true
      */
-    boolean waitSelect;
+    private boolean waitSelect;
     /**
      * 最小的权重变化
      */
@@ -62,6 +61,19 @@ public abstract class BaseDijkVertex<K> {
         for (BaseDijkVertex<K> successorVertex : successorVertexList) {
             consumer.accept(successorVertex);
         }
+    }
+
+    public boolean isWaitSelect() {
+        return waitSelect;
+    }
+
+    public void resetWaitSelectAndEdgeDiff() {
+        waitSelect = false;
+        minEdgeDiff = null;
+    }
+
+    public void markWaitSelect() {
+        waitSelect = true;
     }
 
     public BaseDijkVertex<K> getPrevious() {

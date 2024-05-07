@@ -13,6 +13,10 @@ import org.jgrapht.util.SupplierUtil;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.util.*;
 
 /**
@@ -123,11 +127,13 @@ class GraphTest {
             endVertex = startVertex;
             startVertex = previousNew;
         }
-
+        String edgeStr = JsonUtils.object2String(edges);
         IEdge<Integer> edge = graph.getEdge(startVertex.getK(), endVertex.getK());
         // 模拟权重增加
-        long weightNew = edge.getWeight() + rnd.nextInt(100);
+        int diff = rnd.nextInt(100);
+        long weightNew = edge.getWeight() + diff == 0 ? 1 : diff;
         graph.updateWeight(edge.getStart(), edge.getEnd(), weightNew);
+        Assertions.assertEquals(true, pathTree.checkAllReset());
         multigraph.setEdgeWeight(edge.getStart(), edge.getEnd(), weightNew);
         IntVertexDijkstraShortestPath<WeightedEdge> shortestPath = new IntVertexDijkstraShortestPath<>(multigraph);
         ShortestPathAlgorithm.SingleSourcePaths<Integer, WeightedEdge> sourcePaths = shortestPath.getPaths(start);
@@ -156,9 +162,10 @@ class GraphTest {
             pathTree.printAllPath();
             System.out.println("正确版本：");
             tree.printAllPath();
-            String graphStr = JsonUtils.object2String(edges);
-            System.out.println(graphStr);
-            throw new RuntimeException();
+            System.out.println("变更权重前：" + edgeStr);
+            System.out.println("problemEdge：" + JsonUtils.object2String(problemEdge));
+            System.out.println(String.format("起点：%s，终点：%s，权重变化：%s %s diff:%s", start, end, startVertex, endVertex, diff));
+            Assertions.assertEquals(previous, previousError);
         }
     }
 
@@ -187,7 +194,7 @@ class GraphTest {
     private static DirectedWeightedMultigraph<Integer, WeightedEdge> generateGraph() {
         DirectedWeightedMultigraph<Integer, WeightedEdge> graph
                 = new DirectedWeightedMultigraph<>(WeightedEdge.class);
-        graph.setVertexSupplier(SupplierUtil.createIntegerSupplier());
+        graph.setVertexSupplier(SupplierUtil.createIntegerSupplier(1));
 
         GnpRandomGraphGenerator<Integer, WeightedEdge> generator
                 = new GnpRandomGraphGenerator<>(10, 0.4);
@@ -195,6 +202,9 @@ class GraphTest {
 
         for (WeightedEdge edge : graph.edgeSet()) {
             long weight = (long) (rnd.nextDouble() * 100);
+            if (weight == 0) {
+                weight = 1;
+            }
             graph.setEdgeWeight(edge, weight);
         }
         return graph;
@@ -213,6 +223,35 @@ class GraphTest {
         Graph<String> graph1 = new Graph<>(edges, true);
         ShortestPathTree<String> pathTree = new ShortestPathTree<>(graph1, "A");
         System.out.println();
+    }
+
+    @Test
+    void case1() throws IOException {
+        InputStream inputStream = getClass().getResourceAsStream("/case1.txt");
+        BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(inputStream));
+        String edgeStr = bufferedReader.readLine();
+        List<Edge> edgeList = JsonUtils.string2Object(edgeStr, new TypeReference<List<Edge>>() {
+        });
+        graph = new Graph<>(edgeList, true);
+        ShortestPathTreeCache<Integer> treeCache = new ShortestPathTreeCache<>(graph);
+        int start = 4;
+        ShortestPathTree<Integer> pathTree = treeCache.getOrCreateShortestPathTree(start);
+        pathTree.getPrevious(null);
+        pathTree.printAllPath();
+        int edgeStart = 4;
+        int edgeEnd = 5;
+        IEdge<Integer> edge = graph.getEdge(edgeStart, edgeEnd);
+        int diff = 51;
+        graph.updateWeight(edgeStart, edgeEnd, edge.getWeight() + diff);
+        System.out.println("权重变更后：");
+        pathTree.printAllPath();
+        int target = 10;
+        Vertex<Integer> vertex = pathTree.getPrevious(target);
+        ShortestPathTree<Integer> tree = new ShortestPathTree<>(graph, start);
+        System.out.println("正确版本：");
+        tree.printAllPath();
+        Assertions.assertEquals(tree.getPrevious(target).getK(), vertex.getK());
+        Assertions.assertEquals(true, pathTree.checkAllReset());
     }
 
     /**

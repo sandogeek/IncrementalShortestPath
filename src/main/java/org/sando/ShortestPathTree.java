@@ -91,6 +91,10 @@ public class ShortestPathTree<K> {
         this.complete = false;
     }
 
+    public boolean checkAllReset() {
+        return treeUpdater.checkAllReset();
+    }
+
     class DijkHeapWrapper {
         private final Heap<VertexIndex<K>> heap;
         Map<K, VertexIndex<K>> map;
@@ -153,7 +157,7 @@ public class ShortestPathTree<K> {
                     stringBuilder.append(" -> " + vertexList.get(i));
                 }
             }
-            LOGGER.info(stringBuilder.toString());
+            System.out.println(stringBuilder);
         }
     }
 

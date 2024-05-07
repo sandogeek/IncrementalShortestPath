@@ -12,6 +12,9 @@ public class Edge implements IEdge<Integer> {
     private int end;
     private long weight;
 
+    public Edge() {
+    }
+
     public Edge(int start, int end, long weight) {
         this.start = start;
         this.end = end;
