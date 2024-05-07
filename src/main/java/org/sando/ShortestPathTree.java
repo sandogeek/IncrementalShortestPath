@@ -7,13 +7,6 @@ import java.util.*;
 
 /**
  * 最短路径树T2
- * <p>
- * 路径更新参考文献：<a href="https://www.jsjkx.com/CN/article/openArticlePDF.jsp?id=3759">...</a>
- * </p>
- * {@link VertexIndex}构成的最短路径树T1，是当前不考虑其它节点的最短路径树,当节点未遍历完时，{@link DijkstraVertex}构成的路径树T2必定是T1
- * 的子树；当节点遍历完时，{@link DijkstraVertex}构成的路径树T2必定等于T1。因此，当T2不完整时，做路径更新时应使用T1。
- * 并且，在执行路径更新时，如果{@link VertexIndex#selected}
- * 为true，则对{@link VertexIndex}的路径更新也要更新到路径树T2中。
  *
  * @author Sando
  * @version 1.0
@@ -81,13 +74,12 @@ public class ShortestPathTree<K> {
             complete = true;
             heapWrapper = null;
         }
-        LOGGER.debug("------------结束--------------\n");
     }
 
     public void edgeUpdate(IEdge<K> edge, long oldWeight) {
-//        if (!complete) {
-//            dijkstra(null);
-//        }
+        if (!complete) {
+            dijkstra(null);
+        }
         treeUpdater.edgeUpdate(edge, oldWeight);
     }
 
@@ -212,7 +204,11 @@ public class ShortestPathTree<K> {
         if (vertex == null) {
             return null;
         }
-        return vertex.getPrevious().getVertex();
+        BaseDijkVertex<K> previous = vertex.getPrevious();
+        if (previous == null) {
+            return null;
+        }
+        return previous.getVertex();
     }
 
     /**

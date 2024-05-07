@@ -9,6 +9,11 @@ import java.util.function.Function;
 
 /**
  * 最短路径树更新器
+ * <p>参考文献：<a href="https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=5802c2c7b31f6739d228d8af997bb4d19eda2597">...</a></p>
+ * {@link ShortestPathTree.VertexIndex}构成的最短路径树T1，是当前不考虑其它节点的最短路径树,当节点未遍历完时，{@link DijkstraVertex}构成的路径树T2必定是T1
+ * 的子树；当节点遍历完时，{@link DijkstraVertex}构成的路径树T2必定等于T1。因此，当T2不完整时，做路径更新时应使用T1。
+ * 并且，在执行路径更新时，如果{@link ShortestPathTree.VertexIndex#selected}
+ * 为true，则对{@link ShortestPathTree.VertexIndex}的路径更新也要更新到路径树T2中。
  *
  * @author Sando
  * @version 1.0
@@ -17,7 +22,6 @@ import java.util.function.Function;
 public class ShortestPathTreeUpdater<K> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShortestPathTreeUpdater.class);
     private final ShortestPathTree<K> pathTree;
-    private BaseDijkVertex<K> root;
     private Map<K, ? extends BaseDijkVertex<K>> vertexMap;
 
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree) {
@@ -32,10 +36,8 @@ public class ShortestPathTreeUpdater<K> {
                 return;
             }
             vertexMap = heapWrapper.map;
-            root = heapWrapper.root;
         } else {
             vertexMap = pathTree.vertexMap;
-            root= pathTree.root;
         }
         long weight = edge.getWeight();
         if (weight == oldWeight) {
@@ -61,22 +63,11 @@ public class ShortestPathTreeUpdater<K> {
             Set<BaseDijkVertex<K>> waitSelect = new HashSet<>();
             // 递归收集后继节点，并更新最短路径值
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
-                vertex.changeDistance(diff);
                 waitSelect.add(vertex);
                 vertex.waitSelect = true;
             });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
-            queueWrapper.offer(new EdgeDiff<>(startVertex, endVertex, diff));
-            int total = vertexMap.size();
-            int selectedSize = total - waitSelect.size();
-            // 查找已选节点到待选节点的直接相连的边
-            if (selectedSize < waitSelect.size()) {
-                // 已选节点比较少，通过查找已选节点的出边执行的次数可能会更少
-                handleDirectConnectOutEdge(queueWrapper, root);
-            } else {
-                // 候选节点比较少，通过查找候选节点的入边执行的次数可能会更少
-                handleDirectConnectInEdge(queueWrapper, endVertex);
-            }
+            handleDirectConnectInEdge(queueWrapper, endVertex);
             step5(queueWrapper);
             waitSelect.forEach(dVertex -> {
                 // 还原供下次权重变更时使用
@@ -96,23 +87,20 @@ public class ShortestPathTreeUpdater<K> {
             LOGGER.debug("选中最短路径:{}", poll);
             poll.end.changePrevious(poll.start);
             poll.end.waitSelect = false;
-            queueWrapper.removeContainVertex(poll.end);
-            if (poll.diff < 0) {
-                handleSuccessorAndSelfRecursive(poll.end, vertex -> {
-                    vertex.changeDistance(poll.diff);
-                    LOGGER.debug("更新最短路径距离:{}", vertex);
-                    // 更新队列中受影响的元素
-                    List<EdgeDiff<K>> edgeDiffs = queueWrapper.getEdgeDiffByEnd(vertex);
-                    edgeDiffs.forEach(edgeDiff -> {
-                        edgeDiff.diff -= poll.diff;
-                        if (edgeDiff.diff > 0) {
-                            queueWrapper.removeEdgeDiff(edgeDiff, true);
-                        } else {
-                            queueWrapper.priorityChange(edgeDiff.index, 1);
-                        }
+            handleSuccessorAndSelfRecursive(poll.end, vertex -> {
+//                if (vertex.minEdgeDiff != poll) {
+//                    throw new IllegalStateException();
+//                }
+                vertex.changeDistance(poll.diff);
+                LOGGER.debug("更新最短路径距离:{}", vertex);
+                List<EdgeDiff<K>> edgeDiffs = queueWrapper.getEdgeDiffByEnd(vertex);
+                if (!edgeDiffs.isEmpty()) {
+                    edgeDiffs.forEach(kEdgeDiff -> {
+                        queueWrapper.removeEdgeDiff(kEdgeDiff, true);
                     });
-                });
-            }
+                }
+                vertex.waitSelect = false;
+            });
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
                 Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
                 for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
@@ -122,20 +110,17 @@ public class ShortestPathTreeUpdater<K> {
                         LOGGER.debug("出边{}的终点:{}非候选节点，跳过", edge, end);
                         continue;
                     }
-                    long diff;
-                    if (end.getPrevious() == vertex) {
-                        diff = 0;
-                    } else {
-                        long distanceNew = vertex.getDistance() + edge.getWeight();
-                        long distanceOld = end.getDistance();
-                        diff = distanceNew - distanceOld;
-                    }
+                    long distanceNew = vertex.getDistance() + edge.getWeight();
+                    long distanceOld = end.getDistance();
+                    long diff = distanceNew - distanceOld;
                     LOGGER.debug("处理出边：{} diff:{}", edge, diff);
-                    if (diff < 0) {
+                    if (diff < end.minEdgeDiff.diff) {
                         EdgeDiff<K> edgeDiff = queueWrapper.getEdgeDiff(vertex, end);
                         if (edgeDiff == null) {
-                            queueWrapper.offer(new EdgeDiff<>(vertex, end, diff));
+                            end.minEdgeDiff = new EdgeDiff<>(vertex, end, diff);
+                            queueWrapper.offer(end.minEdgeDiff);
                         } else {
+                            // should not get here
                             if (diff < edgeDiff.diff) {
                                 edgeDiff.diff = diff;
                                 queueWrapper.priorityChange(edgeDiff.index, -1);
@@ -150,41 +135,55 @@ public class ShortestPathTreeUpdater<K> {
 
     private void handleDirectConnectInEdge(QueueWrapper<K> queueWrapper, BaseDijkVertex<K> end) {
         handleSuccessorAndSelfRecursive(end, vertex -> {
+            BaseDijkVertex<K> parent = vertex.getPrevious();
+            Long minDiff = parent.minEdgeDiff == null ?
+                    null : parent.minEdgeDiff.diff;
+            BaseDijkVertex<K> minEdgeDiffStart = null;
+            EdgeDiff<K> minEdgeDiff = parent.minEdgeDiff;
             Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
             for (Map.Entry<K, IEdge<K>> entry : inEdges.entrySet()) {
                 BaseDijkVertex<K> start = vertexMap.get(entry.getKey());
-                if (!start.waitSelect) {
-                    long distanceNew = start.getDistance() + entry.getValue().getWeight();
-                    long distanceOld = vertex.getDistance();
-                    long diff = distanceNew - distanceOld;
-                    if (diff < 0) {
-                        queueWrapper.offer(new EdgeDiff<>(start, vertex, diff));
-                    }
+                if (start.getPrevious() == null) {
+                    continue;
+                }
+                if (start.waitSelect) {
+                    continue;
+                }
+                long distanceNew = start.getDistance() + entry.getValue().getWeight();
+                long distanceOld = vertex.getDistance();
+                long diff = distanceNew - distanceOld;
+                if (minDiff == null) {
+                    minDiff = diff;
+                    minEdgeDiffStart = start;
+                } else if (diff < minDiff) {
+                    minDiff = diff;
+                    minEdgeDiffStart = start;
                 }
             }
+            if (minEdgeDiffStart != null) {
+                minEdgeDiff = new EdgeDiff<>(minEdgeDiffStart, vertex, minDiff);
+                queueWrapper.offer(minEdgeDiff);
+            }
+            vertex.minEdgeDiff = minEdgeDiff;
         });
     }
 
     private void handleDirectConnectOutEdge(QueueWrapper<K> queueWrapper, BaseDijkVertex<K> start) {
         handleSuccessorAndSelfRecursive(start, vertex -> {
-            updateOutEdgeAndQueue(queueWrapper, vertex);
+            Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
+            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
+                BaseDijkVertex<K> end = vertexMap.get(entry.getKey());
+                if (!end.waitSelect) {
+                    continue;
+                }
+                long distanceNew = vertex.getDistance() + entry.getValue().getWeight();
+                long distanceOld = end.getDistance();
+                long diff = distanceNew - distanceOld;
+                if (diff < 0) {
+                    queueWrapper.offer(new EdgeDiff<>(vertex, end, diff));
+                }
+            }
         }, vertex -> vertex.waitSelect);
-    }
-
-    private void updateOutEdgeAndQueue(QueueWrapper<K> queueWrapper, BaseDijkVertex<K> vertex) {
-        Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
-        for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
-            BaseDijkVertex<K> end = vertexMap.get(entry.getKey());
-            if (!end.waitSelect) {
-                continue;
-            }
-            long distanceNew = vertex.getDistance() + entry.getValue().getWeight();
-            long distanceOld = end.getDistance();
-            long diff = distanceNew - distanceOld;
-            if (diff < 0) {
-                queueWrapper.offer(new EdgeDiff<>(vertex, end, diff));
-            }
-        }
     }
 
     private void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,

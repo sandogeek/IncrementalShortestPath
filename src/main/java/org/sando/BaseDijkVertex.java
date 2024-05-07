@@ -26,6 +26,10 @@ public abstract class BaseDijkVertex<K> {
      * black:false white:true
      */
     boolean waitSelect;
+    /**
+     * 最小的权重变化
+     */
+    ShortestPathTreeUpdater.EdgeDiff<K> minEdgeDiff;
 
     public boolean hasSuccessor() {
         return successorVertexList != null && !successorVertexList.isEmpty();

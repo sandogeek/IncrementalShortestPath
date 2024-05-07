@@ -112,6 +112,9 @@ class GraphTest {
         ShortestPathTree<Integer> pathTree = pathTreeCache.getOrCreateShortestPathTree(start);
         Vertex<Integer> endVertex = graph.getVertex(end);
         Vertex<Integer> startVertex = pathTree.getPrevious(end);
+        if (startVertex == null) {
+            return;
+        }
         for (int i = 0; i < rnd.nextInt(20); i++) {
             Vertex<Integer> previousNew = pathTree.getPrevious(startVertex.getK());
             if (previousNew == startVertex) {
@@ -138,7 +141,7 @@ class GraphTest {
                 problemEdge = weightedEdge;
                 break;
             }
-            if (!Objects.equals(pathTree.getDistance(target), (long)shortestPath.getPathWeight(start, target))) {
+            if (!Objects.equals(pathTree.getDistance(target), (long) shortestPath.getPathWeight(start, target))) {
                 problemEdge = weightedEdge;
                 break;
             }
@@ -147,9 +150,15 @@ class GraphTest {
             ShortestPathTree<Integer> tree = new ShortestPathTree<>(graph, start);
             tree.getPrevious(null);
             Vertex<Integer> previous = tree.getPrevious((Integer) problemEdge.getTarget());
+            Assertions.assertEquals(previous.getK(), (Integer) problemEdge.getSource());
             Vertex<Integer> previousError = pathTree.getPrevious((Integer) problemEdge.getTarget());
             // edgeUpdate出现bug了
-            System.out.println();
+            pathTree.printAllPath();
+            System.out.println("正确版本：");
+            tree.printAllPath();
+            String graphStr = JsonUtils.object2String(edges);
+            System.out.println(graphStr);
+            throw new RuntimeException();
         }
     }
 
@@ -181,11 +190,11 @@ class GraphTest {
         graph.setVertexSupplier(SupplierUtil.createIntegerSupplier());
 
         GnpRandomGraphGenerator<Integer, WeightedEdge> generator
-                = new GnpRandomGraphGenerator<>(300, 0.4);
+                = new GnpRandomGraphGenerator<>(10, 0.4);
         generator.generateGraph(graph);
 
         for (WeightedEdge edge : graph.edgeSet()) {
-            long weight = (long)(rnd.nextDouble() * 1000);
+            long weight = (long) (rnd.nextDouble() * 100);
             graph.setEdgeWeight(edge, weight);
         }
         return graph;
@@ -194,13 +203,13 @@ class GraphTest {
     @Test
     void dynamicUpdate() {
         List<StrEdge> edges = new ArrayList<>();
-        edges.add(new StrEdge("A","E", 110));
-        edges.add(new StrEdge("A","B", 10));
-        edges.add(new StrEdge("A","D", 30));
-        edges.add(new StrEdge("B","C", 35));
-        edges.add(new StrEdge("C","E", 10));
-        edges.add(new StrEdge("D","E", 70));
-        edges.add(new StrEdge("D","C", 20));
+        edges.add(new StrEdge("A", "E", 110));
+        edges.add(new StrEdge("A", "B", 10));
+        edges.add(new StrEdge("A", "D", 30));
+        edges.add(new StrEdge("B", "C", 35));
+        edges.add(new StrEdge("C", "E", 10));
+        edges.add(new StrEdge("D", "E", 70));
+        edges.add(new StrEdge("D", "C", 20));
         Graph<String> graph1 = new Graph<>(edges, true);
         ShortestPathTree<String> pathTree = new ShortestPathTree<>(graph1, "A");
         System.out.println();
@@ -224,55 +233,55 @@ class GraphTest {
 
     private static void doDemoTest(boolean useCompleteTree) {
         List<StrEdge> edges = new ArrayList<>();
-        edges.add(new StrEdge("a","f", 3));
-        edges.add(new StrEdge("a","e", 5));
-        edges.add(new StrEdge("b","g", 3));
-        edges.add(new StrEdge("c","h", 8));
-        edges.add(new StrEdge("c","g", 6));
-        edges.add(new StrEdge("c","b", 3));
-        edges.add(new StrEdge("c","d", 5));
-        edges.add(new StrEdge("d","h", 5));
-        edges.add(new StrEdge("e","f", 4));
-        edges.add(new StrEdge("e","m", 6));
-        edges.add(new StrEdge("f","m", 7));
-        edges.add(new StrEdge("f","l", 7));
-        edges.add(new StrEdge("f","g", 6));
-        edges.add(new StrEdge("g","a", 4));
-        edges.add(new StrEdge("g","l", 5));
-        edges.add(new StrEdge("g","k", 8));
-        edges.add(new StrEdge("g","j", 6));
-        edges.add(new StrEdge("g","h", 10));
-        edges.add(new StrEdge("h","j", 6));
-        edges.add(new StrEdge("h","i", 4));
-        edges.add(new StrEdge("i","d", 10));
-        edges.add(new StrEdge("j","p", 9));
-        edges.add(new StrEdge("j","q", 3));
-        edges.add(new StrEdge("j","i", 4));
-        edges.add(new StrEdge("k","p", 4));
-        edges.add(new StrEdge("k","j", 4));
-        edges.add(new StrEdge("l","o", 4));
-        edges.add(new StrEdge("l","k", 7));
-        edges.add(new StrEdge("m","n", 10));
-        edges.add(new StrEdge("m","o", 5));
-        edges.add(new StrEdge("n","u", 5));
-        edges.add(new StrEdge("o","n", 8));
-        edges.add(new StrEdge("o","u", 7));
-        edges.add(new StrEdge("o","p", 7));
-        edges.add(new StrEdge("p","u", 7));
-        edges.add(new StrEdge("p","r", 5));
-        edges.add(new StrEdge("p","q", 15));
-        edges.add(new StrEdge("q","i", 9));
-        edges.add(new StrEdge("r","q", 14));
-        edges.add(new StrEdge("r","t", 4));
-        edges.add(new StrEdge("s","a", 6));
-        edges.add(new StrEdge("s","b", 4));
-        edges.add(new StrEdge("s","c", 7));
-        edges.add(new StrEdge("u","v", 5));
-        edges.add(new StrEdge("u","w", 7));
-        edges.add(new StrEdge("u","t", 6));
-        edges.add(new StrEdge("v","w", 5));
-        edges.add(new StrEdge("v","t", 7));
-        edges.add(new StrEdge("w","n", 7));
+        edges.add(new StrEdge("a", "f", 3));
+        edges.add(new StrEdge("a", "e", 5));
+        edges.add(new StrEdge("b", "g", 3));
+        edges.add(new StrEdge("c", "h", 8));
+        edges.add(new StrEdge("c", "g", 6));
+        edges.add(new StrEdge("c", "b", 3));
+        edges.add(new StrEdge("c", "d", 5));
+        edges.add(new StrEdge("d", "h", 5));
+        edges.add(new StrEdge("e", "f", 4));
+        edges.add(new StrEdge("e", "m", 6));
+        edges.add(new StrEdge("f", "m", 7));
+        edges.add(new StrEdge("f", "l", 7));
+        edges.add(new StrEdge("f", "g", 6));
+        edges.add(new StrEdge("g", "a", 4));
+        edges.add(new StrEdge("g", "l", 5));
+        edges.add(new StrEdge("g", "k", 8));
+        edges.add(new StrEdge("g", "j", 6));
+        edges.add(new StrEdge("g", "h", 10));
+        edges.add(new StrEdge("h", "j", 6));
+        edges.add(new StrEdge("h", "i", 4));
+        edges.add(new StrEdge("i", "d", 10));
+        edges.add(new StrEdge("j", "p", 9));
+        edges.add(new StrEdge("j", "q", 3));
+        edges.add(new StrEdge("j", "i", 4));
+        edges.add(new StrEdge("k", "p", 4));
+        edges.add(new StrEdge("k", "j", 4));
+        edges.add(new StrEdge("l", "o", 4));
+        edges.add(new StrEdge("l", "k", 7));
+        edges.add(new StrEdge("m", "n", 10));
+        edges.add(new StrEdge("m", "o", 5));
+        edges.add(new StrEdge("n", "u", 5));
+        edges.add(new StrEdge("o", "n", 8));
+        edges.add(new StrEdge("o", "u", 7));
+        edges.add(new StrEdge("o", "p", 7));
+        edges.add(new StrEdge("p", "u", 7));
+        edges.add(new StrEdge("p", "r", 5));
+        edges.add(new StrEdge("p", "q", 15));
+        edges.add(new StrEdge("q", "i", 9));
+        edges.add(new StrEdge("r", "q", 14));
+        edges.add(new StrEdge("r", "t", 4));
+        edges.add(new StrEdge("s", "a", 6));
+        edges.add(new StrEdge("s", "b", 4));
+        edges.add(new StrEdge("s", "c", 7));
+        edges.add(new StrEdge("u", "v", 5));
+        edges.add(new StrEdge("u", "w", 7));
+        edges.add(new StrEdge("u", "t", 6));
+        edges.add(new StrEdge("v", "w", 5));
+        edges.add(new StrEdge("v", "t", 7));
+        edges.add(new StrEdge("w", "n", 7));
         Graph<String> graph1 = new Graph<>(edges, true);
         ShortestPathTreeCache<String> treeCache = new ShortestPathTreeCache<>(graph1);
         ShortestPathTree<String> pathTree = treeCache.getOrCreateShortestPathTree("s");
@@ -296,6 +305,7 @@ class GraphTest {
             this.end = end;
             this.weight = weight;
         }
+
         @Override
         public String getStart() {
             return start;
