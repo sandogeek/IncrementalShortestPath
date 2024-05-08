@@ -35,10 +35,9 @@ public class ShortestPathTreeUpdater<K> {
                 // 意味着当前最短路径树还是空的
                 return;
             }
-            vertexMap = heapWrapper.map;
-        } else {
-            vertexMap = pathTree.vertexMap;
+            pathTree.dijkstra(null);
         }
+        vertexMap = pathTree.vertexMap;
         long weight = edge.getWeight();
         if (weight == oldWeight) {
             return;
@@ -55,12 +54,10 @@ public class ShortestPathTreeUpdater<K> {
                 return;
             }
             // 递归收集后继节点，并更新最短路径值
-            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
-                vertex.markWaitSelect();
-            });
+            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::markWaitSelect);
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectConnectInEdge(queueWrapper, endVertex);
-            step5(queueWrapper);
+            step2(queueWrapper);
         } else {
             // 权重减少
         }
@@ -68,18 +65,15 @@ public class ShortestPathTreeUpdater<K> {
     }
 
     /**
-     * 论文中的步骤5
+     * 论文中的步骤2
      */
-    private void step5(QueueWrapper<K> queueWrapper) {
+    private void step2(QueueWrapper<K> queueWrapper) {
         while (!queueWrapper.isEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
             poll.end.changePrevious(poll.start);
             poll.end.resetWaitSelectAndEdgeDiff();
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
-//                if (vertex.minEdgeDiff != poll) {
-//                    throw new IllegalStateException();
-//                }
                 vertex.changeDistance(poll.diff);
                 LOGGER.debug("更新最短路径距离:{}", vertex);
                 List<EdgeDiff<K>> edgeDiffs = queueWrapper.getEdgeDiffByEnd(vertex);
@@ -104,17 +98,8 @@ public class ShortestPathTreeUpdater<K> {
                     long diff = distanceNew - distanceOld;
                     LOGGER.debug("处理出边：{} diff:{}", edge, diff);
                     if (diff < end.minEdgeDiff.diff) {
-                        EdgeDiff<K> edgeDiff = queueWrapper.getEdgeDiff(vertex, end);
-                        if (edgeDiff == null) {
-                            end.minEdgeDiff = new EdgeDiff<>(vertex, end, diff);
-                            queueWrapper.offer(end.minEdgeDiff);
-                        } else {
-                            // should not get here
-                            if (diff < edgeDiff.diff) {
-                                edgeDiff.diff = diff;
-                                queueWrapper.priorityChange(edgeDiff.index, -1);
-                            }
-                        }
+                        end.minEdgeDiff = new EdgeDiff<>(vertex, end, diff);
+                        queueWrapper.offer(end.minEdgeDiff);
                     }
                 }
             });
@@ -155,24 +140,6 @@ public class ShortestPathTreeUpdater<K> {
             }
             vertex.minEdgeDiff = minEdgeDiff;
         });
-    }
-
-    private void handleDirectConnectOutEdge(QueueWrapper<K> queueWrapper, BaseDijkVertex<K> start) {
-        handleSuccessorAndSelfRecursive(start, vertex -> {
-            Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
-            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
-                BaseDijkVertex<K> end = vertexMap.get(entry.getKey());
-                if (!end.isWaitSelect()) {
-                    continue;
-                }
-                long distanceNew = vertex.getDistance() + entry.getValue().getWeight();
-                long distanceOld = end.getDistance();
-                long diff = distanceNew - distanceOld;
-                if (diff < 0) {
-                    queueWrapper.offer(new EdgeDiff<>(vertex, end, diff));
-                }
-            }
-        }, vertex -> vertex.isWaitSelect());
     }
 
     private void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
@@ -325,14 +292,14 @@ public class ShortestPathTreeUpdater<K> {
             removeEdgeFromEnd(edgeDiff);
         }
 
-        public void removeEdgeFromStart(EdgeDiff<K> edgeDiff) {
+        private void removeEdgeFromStart(EdgeDiff<K> edgeDiff) {
             Map<BaseDijkVertex<K>, EdgeDiff<K>> map = start2End.get(edgeDiff.start);
             if (map != null) {
                 map.remove(edgeDiff.end);
             }
         }
 
-        public void removeEdgeFromEnd(EdgeDiff<K> edgeDiff) {
+        private void removeEdgeFromEnd(EdgeDiff<K> edgeDiff) {
             Map<BaseDijkVertex<K>, EdgeDiff<K>> map = end2Start.get(edgeDiff.end);
             if (map != null) {
                 map.remove(edgeDiff.start);

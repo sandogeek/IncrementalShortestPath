@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import java.util.*;
 
 /**
- * 最短路径树T2
+ * 最短路径树
  *
  * @author Sando
  * @version 1.0
@@ -37,7 +37,7 @@ public class ShortestPathTree<K> {
         this.treeUpdater = new ShortestPathTreeUpdater<>(this);
     }
 
-    private void dijkstra(K target) {
+    void dijkstra(K target) {
         if (complete) {
             return;
         }
@@ -52,7 +52,7 @@ public class ShortestPathTree<K> {
         VertexIndex<K> start;
         while (!heapWrapper.isEmpty()) {
             start = heapWrapper.poll();
-//            LOGGER.debug("选中节点：" + start);
+//            LOGGER.debug("选中节点：" + start);K
             start.selected = true;
             start.changePrevious(start.getPrevious());
             // 遍历所有邻接顶点
@@ -77,9 +77,6 @@ public class ShortestPathTree<K> {
     }
 
     public void edgeUpdate(IEdge<K> edge, long oldWeight) {
-        if (!complete) {
-            dijkstra(null);
-        }
         treeUpdater.edgeUpdate(edge, oldWeight);
     }
 
@@ -139,27 +136,44 @@ public class ShortestPathTree<K> {
      * 打印当前已知的所有最短路径
      */
     public void printCurAllPath() {
-        for (DijkstraVertex<K> vertex : vertexMap.values()) {
-            List<DijkstraVertex<K>> vertexList = new ArrayList<>();
-            vertexList.add(vertex);
-            while (vertex != null && vertex.getVertex() != null && vertex.getPrevious() != vertex) {
-                vertexList.add((DijkstraVertex<K>) vertex.getPrevious());
-                vertex = (DijkstraVertex<K>) vertex.getPrevious();
-            }
-            StringBuilder stringBuilder = new StringBuilder();
-            int size = vertexList.size();
-            boolean first = true;
-            for (int i = size - 1; i >= 0; i--) {
-                if (first) {
-                    stringBuilder.append(vertexList.get(i));
-                    first = false;
-                } else {
-                    stringBuilder.append(" -> " + vertexList.get(i));
-                }
-            }
+        for (BaseDijkVertex<K> vertex : vertexMap.values()) {
+            StringBuilder stringBuilder = getPathStringBuilder(vertex);
             System.out.println(stringBuilder);
         }
     }
+
+    public static <K> StringBuilder getPathStringBuilder(BaseDijkVertex<K> target) {
+        List<BaseDijkVertex<K>> vertexList = new ArrayList<>();
+        vertexList.add(target);
+        while (target != null && target.getVertex() != null && target.getPrevious() != target) {
+            vertexList.add(target.getPrevious());
+            target = target.getPrevious();
+        }
+        StringBuilder stringBuilder = new StringBuilder();
+        int size = vertexList.size();
+        boolean first = true;
+        for (int i = size - 1; i >= 0; i--) {
+            if (first) {
+                stringBuilder.append(vertexList.get(i));
+                first = false;
+            } else {
+                stringBuilder.append(" -> ").append(vertexList.get(i));
+            }
+        }
+        return stringBuilder;
+    }
+
+    public void printTmpPath() {
+        Map<K, ? extends BaseDijkVertex<K>> vertexMap = this.vertexMap;
+        if (!complete) {
+            vertexMap = heapWrapper.map;
+        }
+        for (BaseDijkVertex<K> vertex : vertexMap.values()) {
+            StringBuilder stringBuilder = getPathStringBuilder(vertex);
+            System.out.println(stringBuilder);
+        }
+    }
+
 
     /**
      * 打印完整最短路径
@@ -170,7 +184,6 @@ public class ShortestPathTree<K> {
         }
         printCurAllPath();
     }
-
 
 
     /**
@@ -185,13 +198,9 @@ public class ShortestPathTree<K> {
             end.changePrevious(start);
             if (end.index == Heap.NOT_IN_HEAP) {
                 heap.offer(end);
-//                LOGGER.debug("更新节点offer：" + end);
                 return;
             }
             heap.priorityChange(end.index, -1);
-//            LOGGER.debug("更新节点update：" + end);
-//            heap.remove(end);
-//            heap.offer(end);
         }
     }
 
@@ -281,7 +290,7 @@ public class ShortestPathTree<K> {
         public long changeDistance(long diff) {
             long result = dVertex.changeDistance(diff);
             if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index, diff == 0 ? 0 :(diff > 0 ? 1 : -1));
+                heap.priorityChange(index, diff == 0 ? 0 : (diff > 0 ? 1 : -1));
             }
             return result;
         }

@@ -142,12 +142,13 @@ class GraphTest {
         Vertex<Integer> finalStartVertex = startVertex;
         Vertex<Integer> finalEndVertex = endVertex;
         int finalDiff = diff;
+        pathTree.getPrevious(null);
         graph.walkVertex(vertex -> {
             long distance1 = pathTree.getDistance(vertex.getK());
             long distance2 = (long) sourcePaths.getWeight(vertex.getK());
             if (distance2 != distance1) {
                 try {
-                    save2File(start, edgeStr, finalStartVertex, finalEndVertex, finalDiff);
+                    save2File(start, end, edgeStr, finalStartVertex, finalEndVertex, finalDiff);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -156,10 +157,11 @@ class GraphTest {
         });
     }
 
-    private static void save2File(Integer start, String edgeStr, Vertex<Integer> startVertex, Vertex<Integer> endVertex, int diff) throws IOException {
+    private static void save2File(Integer start, Integer end, String edgeStr, Vertex<Integer> startVertex, Vertex<Integer> endVertex, int diff) throws IOException {
         ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
         objectNode.put("edges", edgeStr);
         objectNode.put("start", start);
+        objectNode.put("end", end);
         objectNode.put("edgeStart", startVertex.getK());
         objectNode.put("edgeEnd", endVertex.getK());
         objectNode.put("diff", diff);
@@ -221,9 +223,10 @@ class GraphTest {
         graph = new Graph<>(edgeList, true);
         ShortestPathTreeCache<Integer> treeCache = new ShortestPathTreeCache<>(graph);
         int start = jsonNode.get("start").asInt();
+        int end = jsonNode.get("end").asInt();
         ShortestPathTree<Integer> pathTree = treeCache.getOrCreateShortestPathTree(start);
-        pathTree.getPrevious(null);
-        pathTree.printAllPath();
+        pathTree.getPrevious(end);
+        pathTree.printTmpPath();
         int edgeStart = jsonNode.get("edgeStart").asInt();
         int edgeEnd = jsonNode.get("edgeEnd").asInt();
         IEdge<Integer> edge = graph.getEdge(edgeStart, edgeEnd);
@@ -250,7 +253,6 @@ class GraphTest {
 
     /**
      * 检测两个最短路径树的所有节点的最短距离是否相同
-     * @return
      */
     void checkDistanceSame(Graph<Integer> graph, ShortestPathTree<Integer> pathTree1, ShortestPathAlgorithm.SingleSourcePaths<Integer, WeightedEdge> pathTree2) {
         graph.walkVertex(vertex -> {
