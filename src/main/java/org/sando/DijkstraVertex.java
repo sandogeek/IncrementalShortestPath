@@ -35,6 +35,10 @@ class DijkstraVertex<K> extends BaseDijkVertex<K> {
         this.distance = distance;
     }
 
+    public void resetDistance() {
+        this.distance = Long.MAX_VALUE;
+    }
+
     @Override
     public long changeDistance(long diff) {
         this.distance += diff;

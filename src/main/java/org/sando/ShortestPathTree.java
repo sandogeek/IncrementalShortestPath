@@ -47,6 +47,9 @@ public class ShortestPathTree<K> {
             // 遍历所有顶点
             graph.walkVertex(kVertex -> getOrCreateVertex(kVertex.getK()));
             heapWrapper = new DijkHeapWrapper();
+        } else if (heapWrapper.isEmpty()) {
+            // heapWrapper因为某种原因被清空，进行重建
+            rebuildHeapWrapper();
         }
 
         VertexIndex<K> start;
@@ -76,7 +79,48 @@ public class ShortestPathTree<K> {
         }
     }
 
+    /**
+     * 重新构建{@link #heapWrapper}
+     */
+    private void rebuildHeapWrapper() {
+        PathTreeHelper.handleSuccessorAndSelfRecursive(root, vertex -> {
+            Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
+            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
+                K end = entry.getKey();
+                DijkstraVertex<K> endVertex = getVertex(end);
+                BaseDijkVertex<K> previous = endVertex.getPrevious();
+                if (previous == null) {
+                    VertexIndex<K> vertexIndexStart = heapWrapper.getVertexIndex(vertex.getVertex().getK());
+                    VertexIndex<K> vertexIndexEnd = heapWrapper.getVertexIndex(end);
+                    vertexIndexEnd.dVertex.resetDistance();
+                    relax(heapWrapper, vertexIndexStart, vertexIndexEnd, entry.getValue());
+                }
+            }
+        });
+    }
+
+    /**
+     * 松弛操作
+     */
+    private void relax(DijkHeapWrapper heap, VertexIndex<K> start, VertexIndex<K> end, IEdge<K> edge) {
+        DijkstraVertex<K> vertex = end.dVertex;
+        long weight = edge.getWeight();
+        long distanceNew = start.dVertex.getDistance() + weight;
+        if (distanceNew < vertex.getDistance()) {
+            vertex.setDistance(distanceNew);
+            end.changePrevious(start);
+            if (end.index == Heap.NOT_IN_HEAP) {
+                heap.offer(end);
+                return;
+            }
+            heap.priorityChange(end.index, -1);
+        }
+    }
+
     public void edgeUpdate(IEdge<K> edge, long oldWeight) {
+        if (!complete) {
+            heapWrapper.clear();
+        }
         treeUpdater.edgeUpdate(edge, oldWeight);
     }
 
@@ -124,6 +168,10 @@ public class ShortestPathTree<K> {
 
         public void priorityChange(int index, int compareResult) {
             heap.priorityChange(index, compareResult);
+        }
+
+        public void clear() {
+            heap.clear();
         }
 
         @Override
@@ -183,25 +231,6 @@ public class ShortestPathTree<K> {
             dijkstra(null);
         }
         printCurAllPath();
-    }
-
-
-    /**
-     * 松弛操作
-     */
-    private void relax(DijkHeapWrapper heap, VertexIndex<K> start, VertexIndex<K> end, IEdge<K> edge) {
-        DijkstraVertex<K> vertex = end.dVertex;
-        long weight = edge.getWeight();
-        long distanceNew = start.dVertex.getDistance() + weight;
-        if (distanceNew < vertex.getDistance()) {
-            vertex.setDistance(distanceNew);
-            end.changePrevious(start);
-            if (end.index == Heap.NOT_IN_HEAP) {
-                heap.offer(end);
-                return;
-            }
-            heap.priorityChange(end.index, -1);
-        }
     }
 
     private DijkstraVertex<K> getOrCreateVertex(K k) {

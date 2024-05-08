@@ -7,6 +7,8 @@ import java.util.*;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
+import static org.sando.PathTreeHelper.handleSuccessorAndSelfRecursive;
+
 /**
  * 最短路径树更新器
  * <p>参考文献：<a href="https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=5802c2c7b31f6739d228d8af997bb4d19eda2597">...</a></p>
@@ -35,9 +37,10 @@ public class ShortestPathTreeUpdater<K> {
                 // 意味着当前最短路径树还是空的
                 return;
             }
-            pathTree.dijkstra(null);
+            vertexMap = heapWrapper.map;
+        } else {
+            vertexMap = pathTree.vertexMap;
         }
-        vertexMap = pathTree.vertexMap;
         long weight = edge.getWeight();
         if (weight == oldWeight) {
             return;
@@ -93,6 +96,10 @@ public class ShortestPathTreeUpdater<K> {
                         LOGGER.debug("出边{}的终点:{}非候选节点，跳过", edge, end);
                         continue;
                     }
+                    if (end.getPrevious() == null) {
+                        LOGGER.debug("出边{}的终点:{}不在最短路径上，跳过", edge, end);
+                        continue;
+                    }
                     long distanceNew = vertex.getDistance() + edge.getWeight();
                     long distanceOld = end.getDistance();
                     long diff = distanceNew - distanceOld;
@@ -139,39 +146,6 @@ public class ShortestPathTreeUpdater<K> {
                 queueWrapper.offer(minEdgeDiff);
             }
             vertex.minEdgeDiff = minEdgeDiff;
-        });
-    }
-
-    private void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
-                                                 Consumer<BaseDijkVertex<K>> vertexConsumer) {
-        vertexConsumer.accept(vertexRoot);
-        handleSuccessorRecursive(vertexRoot, vertexConsumer, null);
-    }
-
-    private void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
-                                                 Consumer<BaseDijkVertex<K>> vertexConsumer, Function<BaseDijkVertex<K>, Boolean> stopConusmeAndRecursive) {
-        if (stopConusmeAndRecursive != null && stopConusmeAndRecursive.apply(vertexRoot)) {
-            return;
-        }
-        vertexConsumer.accept(vertexRoot);
-        handleSuccessorRecursive(vertexRoot, vertexConsumer, stopConusmeAndRecursive);
-    }
-
-    /**
-     * 递归处理最短路径上的后继节点
-     *
-     * @param vertexRoot     起点
-     * @param vertexConsumer 消费节点
-     * @param stopRecursive  是否停止递归该节点的后继节点,并且该节点不会被消费
-     */
-    private void handleSuccessorRecursive(BaseDijkVertex<K> vertexRoot,
-                                          Consumer<BaseDijkVertex<K>> vertexConsumer, Function<BaseDijkVertex<K>, Boolean> stopRecursive) {
-        vertexRoot.walkSuccessor(vertex -> {
-            if (stopRecursive != null && stopRecursive.apply(vertex)) {
-                return;
-            }
-            vertexConsumer.accept(vertex);
-            handleSuccessorRecursive(vertex, vertexConsumer, stopRecursive);
         });
     }
 
