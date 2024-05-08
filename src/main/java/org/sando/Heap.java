@@ -538,8 +538,9 @@ public class Heap<E> extends AbstractCollection<E> {
         modCount++;
         final Object[] es = queue;
         for (int i = 0; i < size; i++) {
+            Object removed = es[i];
             es[i] = null;
-            outQueue(es[i]);
+            outQueue(removed);
         }
         size = 0;
     }
