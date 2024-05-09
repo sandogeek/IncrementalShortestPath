@@ -7,7 +7,7 @@ package org.sando;
  * @version 1.0
  * @since 2024/5/2
  */
-class DijkstraVertex<K> extends BaseDijkVertex<K> {
+class DijkstraVertex<K> extends BaseDijkVertex<K, DijkstraVertex<K>> {
     /**
      * 对应的顶点
      */
@@ -15,7 +15,7 @@ class DijkstraVertex<K> extends BaseDijkVertex<K> {
     /**
      * 当前顶点到起始顶点的距离
      */
-    public long distance;
+    private long distance;
 
 
     public DijkstraVertex(Vertex<K> vertex) {

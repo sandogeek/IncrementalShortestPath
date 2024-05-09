@@ -13,14 +13,14 @@ public class PathTreeHelper {
     private PathTreeHelper() {
     }
 
-    public static <K> void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
-                                                 Consumer<? super BaseDijkVertex<K>> vertexConsumer) {
+    public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorAndSelfRecursive(V vertexRoot,
+                                                 Consumer<? super V> vertexConsumer) {
         vertexConsumer.accept(vertexRoot);
         handleSuccessorRecursive(vertexRoot, vertexConsumer, null);
     }
 
-    public static <K> void handleSuccessorAndSelfRecursive(BaseDijkVertex<K> vertexRoot,
-                                                 Consumer<? super BaseDijkVertex<K>> vertexConsumer, Function<? super BaseDijkVertex<K>, Boolean> stopConsumeAndRecursive) {
+    public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorAndSelfRecursive(V vertexRoot,
+                                                 Consumer<? super V> vertexConsumer, Function<? super V, Boolean> stopConsumeAndRecursive) {
         if (stopConsumeAndRecursive != null && stopConsumeAndRecursive.apply(vertexRoot)) {
             return;
         }
@@ -35,8 +35,8 @@ public class PathTreeHelper {
      * @param vertexConsumer 消费节点
      * @param stopRecursive  是否停止递归该节点的后继节点,并且该节点不会被消费
      */
-    public static <K> void handleSuccessorRecursive(BaseDijkVertex<K> vertexRoot,
-                                          Consumer<? super BaseDijkVertex<K>> vertexConsumer, Function<? super BaseDijkVertex<K>, Boolean> stopRecursive) {
+    public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorRecursive(V vertexRoot,
+                                          Consumer<? super V> vertexConsumer, Function<? super V, Boolean> stopRecursive) {
         vertexRoot.walkSuccessor(vertex -> {
             if (stopRecursive != null && stopRecursive.apply(vertex)) {
                 return;

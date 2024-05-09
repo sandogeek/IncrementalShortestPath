@@ -11,16 +11,16 @@ import java.util.function.Consumer;
  * @version 1.0
  * @since 2024/5/5
  */
-public abstract class BaseDijkVertex<K> {
+public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     /**
      * 最短路径上的前驱顶点
      */
-    private BaseDijkVertex<K> previous;
+    private V previous;
     /**
      * 最短路径上的后继节点，图动态更新边的权重、增加、删除边时会使用到
      * 注意：这里使用链表，因为可能存在多条最短路径
      */
-    private List<BaseDijkVertex<K>> successorVertexList;
+    private List<V> successorVertexList;
     /**
      * 是否是候选节点，边的权重发生变化时使用
      */
@@ -41,24 +41,24 @@ public abstract class BaseDijkVertex<K> {
         return previous != null;
     }
 
-    private void addSuccessor(BaseDijkVertex<K> successorVertex) {
+    void addSuccessor(V successorVertex) {
         if (successorVertexList == null) {
             successorVertexList = new ArrayList<>();
         }
         successorVertexList.add(successorVertex);
     }
 
-    private void removeSuccessor(BaseDijkVertex<K> successorVertex) {
+    void removeSuccessor(V successorVertex) {
         if (successorVertexList != null) {
             successorVertexList.remove(successorVertex);
         }
     }
 
-    public void walkSuccessor(Consumer<BaseDijkVertex<K>> consumer) {
+    public void walkSuccessor(Consumer<V> consumer) {
         if (successorVertexList == null) {
             return;
         }
-        for (BaseDijkVertex<K> successorVertex : successorVertexList) {
+        for (V successorVertex : new ArrayList<>(successorVertexList)) {
             consumer.accept(successorVertex);
         }
     }
@@ -76,18 +76,19 @@ public abstract class BaseDijkVertex<K> {
         waitSelect = true;
     }
 
-    public BaseDijkVertex<K> getPrevious() {
+    public V getPrevious() {
         return previous;
     }
 
-    public void changePrevious(BaseDijkVertex<K> previous) {
+    @SuppressWarnings("unchecked")
+    public void changePrevious(V previous) {
         if (this.previous != null) {
-            this.previous.removeSuccessor(this);
+            this.previous.removeSuccessor((V)this);
         }
         this.previous = previous;
         // 前驱节点不等于自身才需要在当前节点的前驱节点加入当前节点
         if (this.previous != this && this.previous != null) {
-            this.previous.addSuccessor(this);
+            this.previous.addSuccessor((V)this);
         }
     }
 

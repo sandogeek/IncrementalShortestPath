@@ -15,10 +15,10 @@ import java.util.*;
 public class ShortestPathTree<K> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShortestPathTree.class);
     Map<K, DijkstraVertex<K>> vertexMap;
-    DijkstraVertex<K> root;
+    private DijkstraVertex<K> root;
     private final Graph<K> graph;
     /**
-     * 内部包含最短路径树T1
+     * 内部包含最短路径树
      */
     DijkHeapWrapper heapWrapper;
     /**
@@ -26,6 +26,10 @@ public class ShortestPathTree<K> {
      */
     boolean complete;
     private ShortestPathTreeUpdater<K> treeUpdater;
+    /**
+     * 当前最短路径树上的节点的数量
+     */
+    private int selectedCount;
 
     public ShortestPathTree(Graph<K> graph, K root) {
         if (graph.hasNegativeEdge) {
@@ -47,9 +51,6 @@ public class ShortestPathTree<K> {
             // 遍历所有顶点
             graph.walkVertex(kVertex -> getOrCreateVertex(kVertex.getK()));
             heapWrapper = new DijkHeapWrapper();
-        } else if (heapWrapper.isEmpty()) {
-            // heapWrapper因为某种原因被清空，进行重建
-            rebuildHeapWrapper();
         }
 
         VertexIndex<K> start;
@@ -57,6 +58,7 @@ public class ShortestPathTree<K> {
             start = heapWrapper.poll();
 //            LOGGER.debug("选中节点：" + start);K
             start.selected = true;
+            selectedCount++;
             start.changePrevious(start.getPrevious());
             // 遍历所有邻接顶点
             for (Map.Entry<K, IEdge<K>> entry : start.dVertex.vertex.outEdges.entrySet()) {
@@ -80,26 +82,6 @@ public class ShortestPathTree<K> {
     }
 
     /**
-     * 重新构建{@link #heapWrapper}
-     */
-    private void rebuildHeapWrapper() {
-        PathTreeHelper.handleSuccessorAndSelfRecursive(root, vertex -> {
-            Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
-            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
-                K end = entry.getKey();
-                DijkstraVertex<K> endVertex = getVertex(end);
-                BaseDijkVertex<K> previous = endVertex.getPrevious();
-                if (previous == null) {
-                    VertexIndex<K> vertexIndexStart = heapWrapper.getVertexIndex(vertex.getVertex().getK());
-                    VertexIndex<K> vertexIndexEnd = heapWrapper.getVertexIndex(end);
-                    vertexIndexEnd.dVertex.resetDistance();
-                    relax(heapWrapper, vertexIndexStart, vertexIndexEnd, entry.getValue());
-                }
-            }
-        });
-    }
-
-    /**
      * 松弛操作
      */
     private void relax(DijkHeapWrapper heap, VertexIndex<K> start, VertexIndex<K> end, IEdge<K> edge) {
@@ -118,10 +100,42 @@ public class ShortestPathTree<K> {
     }
 
     public void edgeUpdate(IEdge<K> edge, long oldWeight) {
-        if (!complete) {
-            heapWrapper.clear();
+        long weight = edge.getWeight();
+        if (weight == oldWeight) {
+            return;
+        }
+        if (!complete && heapWrapper != null) {
+            int pct = selectedCount * 100 / vertexMap.size();
+            if (pct > 60) {
+                // 最短路径树已经比较完整了，直接补充完整后用DSPT算法更新
+                dijkstra(null);
+                treeUpdater.edgeUpdate(edge, oldWeight);
+                return;
+            }
+            edgeUpdateOnNotComplete(edge);
+            return;
         }
         treeUpdater.edgeUpdate(edge, oldWeight);
+    }
+
+    private void edgeUpdateOnNotComplete(IEdge<K> edge) {
+        K end = edge.getEnd();
+        VertexIndex<K> viEnd = heapWrapper.getVertexIndex(end);
+        PathTreeHelper.handleSuccessorAndSelfRecursive(viEnd, vertex -> {
+            Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
+            vertex.changePrevious(null);
+            vertex.selected = false;
+            selectedCount--;
+            vertex.removeFromHeap();
+            vertex.dVertex.resetDistance();
+            for (Map.Entry<K, IEdge<K>> entry : inEdges.entrySet()) {
+                VertexIndex<K> viStart = heapWrapper.getVertexIndex(entry.getKey());
+                if (!viStart.selected) {
+                    continue;
+                }
+                relax(heapWrapper, viStart, vertex, entry.getValue());
+            }
+        });
     }
 
     public void edgeAdd(IEdge<K> edge) {
@@ -184,14 +198,14 @@ public class ShortestPathTree<K> {
      * 打印当前已知的所有最短路径
      */
     public void printCurAllPath() {
-        for (BaseDijkVertex<K> vertex : vertexMap.values()) {
+        for (DijkstraVertex<K> vertex : vertexMap.values()) {
             StringBuilder stringBuilder = getPathStringBuilder(vertex);
             System.out.println(stringBuilder);
         }
     }
 
-    public static <K> StringBuilder getPathStringBuilder(BaseDijkVertex<K> target) {
-        List<BaseDijkVertex<K>> vertexList = new ArrayList<>();
+    public static <K, V extends BaseDijkVertex<K, V>> StringBuilder getPathStringBuilder(BaseDijkVertex<K, V> target) {
+        List<BaseDijkVertex<K, V>> vertexList = new ArrayList<>();
         vertexList.add(target);
         while (target != null && target.getVertex() != null && target.getPrevious() != target) {
             vertexList.add(target.getPrevious());
@@ -212,11 +226,11 @@ public class ShortestPathTree<K> {
     }
 
     public void printTmpPath() {
-        Map<K, ? extends BaseDijkVertex<K>> vertexMap = this.vertexMap;
+        Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = this.vertexMap;
         if (!complete) {
             vertexMap = heapWrapper.map;
         }
-        for (BaseDijkVertex<K> vertex : vertexMap.values()) {
+        for (BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> vertex : vertexMap.values()) {
             StringBuilder stringBuilder = getPathStringBuilder(vertex);
             System.out.println(stringBuilder);
         }
@@ -246,7 +260,7 @@ public class ShortestPathTree<K> {
         if (vertex == null) {
             return null;
         }
-        BaseDijkVertex<K> previous = vertex.getPrevious();
+        DijkstraVertex<K> previous = vertex.getPrevious();
         if (previous == null) {
             return null;
         }
@@ -261,7 +275,7 @@ public class ShortestPathTree<K> {
         if (vertex == null) {
             return Long.MAX_VALUE;
         }
-        return vertex.distance;
+        return vertex.getDistance();
     }
 
     private DijkstraVertex<K> tryDoDijkstra(K end) {
@@ -278,7 +292,7 @@ public class ShortestPathTree<K> {
         return vertex;
     }
 
-    static class VertexIndex<K> extends BaseDijkVertex<K> implements IHeapIndex, Comparable<VertexIndex<K>> {
+    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements IHeapIndex, Comparable<VertexIndex<K>> {
         private int index = Heap.NOT_IN_HEAP;
         private DijkstraVertex<K> dVertex;
         boolean selected;
@@ -292,17 +306,22 @@ public class ShortestPathTree<K> {
         }
 
         @Override
-        public void changePrevious(BaseDijkVertex<K> previous) {
-            VertexIndex vertexIndex = (VertexIndex) previous;
-            super.changePrevious(vertexIndex);
+        public void changePrevious(VertexIndex<K> previous) {
+            super.changePrevious(previous);
             if (selected) {
-                dVertex.changePrevious(vertexIndex.dVertex);
+                DijkstraVertex<K> dVertex;
+                if (previous == null) {
+                    dVertex = null;
+                } else {
+                    dVertex = previous.dVertex;
+                }
+                this.dVertex.changePrevious(dVertex);
             }
         }
 
         @Override
         public int compareTo(VertexIndex<K> o) {
-            return (int) (dVertex.distance - o.dVertex.distance);
+            return (int) (dVertex.getDistance() - o.dVertex.getDistance());
         }
 
         @Override
@@ -313,6 +332,13 @@ public class ShortestPathTree<K> {
                 this.heap = heap;
             }
             this.index = index;
+        }
+
+        public void removeFromHeap() {
+            if (index == Heap.NOT_IN_HEAP) {
+                return;
+            }
+            heap.remove(this);
         }
 
         @Override

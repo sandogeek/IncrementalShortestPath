@@ -96,7 +96,7 @@ class GraphTest {
 
     @Test
     void randomTest() {
-        for (int i = 0; i < 200; i++) {
+        for (int i = 0; i < 2000; i++) {
             doRandomTest();
         }
     }
@@ -232,7 +232,7 @@ class GraphTest {
         IEdge<Integer> edge = graph.getEdge(edgeStart, edgeEnd);
         int diff = jsonNode.get("diff").asInt();
         graph.updateWeight(edgeStart, edgeEnd, edge.getWeight() + diff);
-        System.out.println(String.format("权重变更：%s %s diff:%s",edgeStart, edgeEnd, diff));
+        System.out.println(String.format("权重变更：%s %s diff:%s", edgeStart, edgeEnd, diff));
         pathTree.printAllPath();
 
         ShortestPathTree<Integer> tree = new ShortestPathTree<>(graph, start);
@@ -243,7 +243,7 @@ class GraphTest {
         GraphBuilder<Integer, WeightedEdge, ? extends DirectedWeightedMultigraph<Integer, WeightedEdge>> builder = DirectedWeightedMultigraph.createBuilder(WeightedEdge.class);
         edgeList.forEach(edgeTmp -> {
             WeightedEdge weightedEdge = new WeightedEdge();
-            builder.addEdge(edgeTmp.getStart(), edgeTmp.getEnd(), weightedEdge,edgeTmp.getWeight());
+            builder.addEdge(edgeTmp.getStart(), edgeTmp.getEnd(), weightedEdge, edgeTmp.getWeight());
         });
         DirectedWeightedMultigraph<Integer, WeightedEdge> multigraph = builder.build();
         IntVertexDijkstraShortestPath<WeightedEdge> shortestPath = new IntVertexDijkstraShortestPath<>(multigraph);
@@ -259,7 +259,7 @@ class GraphTest {
             Integer k = vertex.getK();
             long distance1 = pathTree1.getDistance(k);
             long distance2 = (long) pathTree2.getWeight(k);
-            Assertions.assertEquals(distance1, distance2,String.format("最短路径树1和2到顶点%s的最短距离不一致", k));
+            Assertions.assertEquals(distance2, distance1, String.format("最短路径树1和2到顶点%s的最短距离不一致", k));
         });
     }
 
