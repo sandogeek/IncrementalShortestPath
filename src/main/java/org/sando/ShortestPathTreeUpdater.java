@@ -4,8 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
-import java.util.function.Consumer;
-import java.util.function.Function;
 
 import static org.sando.PathTreeHelper.handleSuccessorAndSelfRecursive;
 
@@ -38,29 +36,36 @@ public class ShortestPathTreeUpdater<K> {
         }
         K start = edge.getStart();
         K end = edge.getEnd();
+        V startVertex = (V) vertexMap.get(start);
+        V endVertex = (V) vertexMap.get(end);
         long diff = weight - oldWeight;
         if (diff > 0) {
             // 权重增加
-            V startVertex = (V) vertexMap.get(start);
-            V endVertex = (V) vertexMap.get(end);
             if (endVertex.getPrevious() != startVertex) {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
                 return;
             }
-            // 递归收集后继节点，并更新最短路径值
             handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::markWaitSelect);
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectConnectInEdge(queueWrapper, endVertex);
-            step2(queueWrapper);
+            step3(queueWrapper);
         } else {
             // 权重减少
+            long distanceNew = startVertex.getDistance() + edge.getWeight();
+            long distanceOld = endVertex.getDistance();
+            if (distanceNew >= distanceOld) {
+                // 说明权值变小的边影响不到最短路径树
+                return;
+            }
+            // P(j) = i
+            endVertex.changePrevious(startVertex);
         }
     }
 
     /**
      * 论文中的步骤2
      */
-    private <V extends BaseDijkVertex<K,V>> void step2(QueueWrapper<K> queueWrapper) {
+    private <V extends BaseDijkVertex<K,V>> void step3(QueueWrapper<K> queueWrapper) {
         while (!queueWrapper.isEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
@@ -105,6 +110,7 @@ public class ShortestPathTreeUpdater<K> {
 
 
     private <V extends BaseDijkVertex<K,V>> void handleDirectConnectInEdge(QueueWrapper<K> queueWrapper, V end) {
+        // 文章中的des(j)
         handleSuccessorAndSelfRecursive(end, vertex -> {
             V parent = vertex.getPrevious();
             Long minDiff = parent.minEdgeDiff == null ?
