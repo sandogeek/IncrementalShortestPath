@@ -26,7 +26,7 @@ public class ShortestPathTreeUpdater<K> {
         vertexMap = pathTree.vertexMap;
     }
 
-    public <V extends BaseDijkVertex<K,V>> void edgeUpdate(IEdge<K> edge, long oldWeight) {
+    public <V extends BaseDijkVertex<K, V>> void edgeUpdate(IEdge<K> edge, long oldWeight) {
         if (!pathTree.complete) {
             throw new UnsupportedOperationException("ShortestPathTreeUpdater only support complete path tree");
         }
@@ -38,8 +38,7 @@ public class ShortestPathTreeUpdater<K> {
         K end = edge.getEnd();
         V startVertex = (V) vertexMap.get(start);
         V endVertex = (V) vertexMap.get(end);
-        long diff = weight - oldWeight;
-        if (diff > 0) {
+        if (weight > oldWeight) {
             // 权重增加
             if (endVertex.getPrevious() != startVertex) {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
@@ -51,21 +50,38 @@ public class ShortestPathTreeUpdater<K> {
             step3(queueWrapper);
         } else {
             // 权重减少
+            if (endVertex.getPrevious() == startVertex) {
+                // 如果这条边在原来的最短路径树上，那么最短路径树不会改变
+                return;
+            }
             long distanceNew = startVertex.getDistance() + edge.getWeight();
             long distanceOld = endVertex.getDistance();
+            // D(i) + w'(e) < D(j)
             if (distanceNew >= distanceOld) {
                 // 说明权值变小的边影响不到最短路径树
                 return;
             }
+            long diff = distanceNew - distanceOld;
+            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
+                vertex.changeDistance(diff);
+                vertex.markWaitSelect();
+            });
             // P(j) = i
             endVertex.changePrevious(startVertex);
+            // 初始化所有出边
+            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
+                Map<K, IEdge<K>> outEdges = vertex.getVertex().outEdges;
+                for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
+
+                }
+            });
         }
     }
 
     /**
      * 论文中的步骤2
      */
-    private <V extends BaseDijkVertex<K,V>> void step3(QueueWrapper<K> queueWrapper) {
+    private <V extends BaseDijkVertex<K, V>> void step3(QueueWrapper<K> queueWrapper) {
         while (!queueWrapper.isEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
@@ -109,7 +125,7 @@ public class ShortestPathTreeUpdater<K> {
     }
 
 
-    private <V extends BaseDijkVertex<K,V>> void handleDirectConnectInEdge(QueueWrapper<K> queueWrapper, V end) {
+    private <V extends BaseDijkVertex<K, V>> void handleDirectConnectInEdge(QueueWrapper<K> queueWrapper, V end) {
         // 文章中的des(j)
         handleSuccessorAndSelfRecursive(end, vertex -> {
             V parent = vertex.getPrevious();
@@ -145,7 +161,7 @@ public class ShortestPathTreeUpdater<K> {
         });
     }
 
-    public  boolean checkAllReset() {
+    public boolean checkAllReset() {
         for (BaseDijkVertex<K, ?> kBaseDijkVertex : vertexMap.values()) {
             boolean waitSelect = kBaseDijkVertex.isWaitSelect();
             if (waitSelect) {

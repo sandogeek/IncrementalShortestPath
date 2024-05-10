@@ -338,9 +338,9 @@ class GraphTest {
         } else {
             pathTree.getPrevious("o");
         }
-        graph1.updateWeight("b", "g", 10);
-        pathTree.printCurAllPath();
-        pathTree.printAllPath();
+        graph1.updateWeight("f", "l", 2);
+        ShortestPathTree<String> tree = new ShortestPathTree<>(graph1, "s");
+        tree.printAllPath();
     }
 
     static class StrEdge implements IEdge<String> {
