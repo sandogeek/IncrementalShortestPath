@@ -4,6 +4,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.function.BiPredicate;
 
 import static org.sando.PathTreeHelper.handleSuccessorAndSelfRecursive;
 
@@ -24,6 +25,12 @@ public class ShortestPathTreeUpdater<K> {
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree) {
         this.pathTree = pathTree;
         vertexMap = pathTree.vertexMap;
+    }
+
+    private static <K, V extends BaseDijkVertex<K, V>> boolean decFilter(V start, V end) {
+        // 跳过最短路径上的边，因此此时start到end的距离diff必定为0
+        LOGGER.debug("跳过最短路径上的边:{} {}", start, end);
+        return end.getPrevious() == start;
     }
 
     public <V extends BaseDijkVertex<K, V>> void edgeUpdate(IEdge<K> edge, long oldWeight) {
@@ -48,10 +55,14 @@ public class ShortestPathTreeUpdater<K> {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
                 return;
             }
-            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::markWaitSelect);
+            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
+                vertex.markWaitSelect();
+                vertex.changeDistance(weight - oldWeight);
+            });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectInEdge(queueWrapper, endVertex);
-            step3(queueWrapper);
+            pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
+            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetWaitSelectAndEdgeDiff);
         } else {
             // 权重减少
             long distanceNew = startVertex.getDistance() + edge.getWeight();
@@ -68,82 +79,16 @@ public class ShortestPathTreeUpdater<K> {
             // P(j) = i
             endVertex.changePrevious(startVertex);
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
-            handleOutEdge(queueWrapper,endVertex);
-            step4(queueWrapper);
+            handleOutEdge(queueWrapper, endVertex, ShortestPathTreeUpdater::decFilter);
+            pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::decFilter);
         }
     }
 
-    private <V extends BaseDijkVertex<K, V>> void step4(QueueWrapper<K> queueWrapper) {
+    private <V extends BaseDijkVertex<K, V>> void pollUntilEmpty(QueueWrapper<K> queueWrapper, BiPredicate<V, V> edgeFilter) {
         while (!queueWrapper.isEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
             poll.end.changePrevious(poll.start);
-            handleSuccessorAndSelfRecursive(poll.end, vertex -> {
-                vertex.changeDistance(poll.diff);
-                vertex.minEdgeDiff = null;
-                LOGGER.debug("更新最短路径距离:{}", vertex);
-                List<EdgeDiff<K>> edgeDiffs = queueWrapper.getEdgeDiffByEnd(vertex);
-                if (!edgeDiffs.isEmpty()) {
-                    edgeDiffs.forEach(kEdgeDiff -> {
-                        queueWrapper.removeEdgeDiff(kEdgeDiff, true);
-                    });
-                }
-            });
-            handleOutEdge(queueWrapper, poll.end);
-        }
-    }
-
-    private <V extends BaseDijkVertex<K, V>> void handleOutEdge(QueueWrapper<K> queueWrapper, V endVertex) {
-        // 初始化所有出边
-        handleSuccessorAndSelfRecursive(endVertex, start -> {
-            Map<K, IEdge<K>> outEdges = start.getVertex().outEdges;
-            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
-                V end = (V) vertexMap.get(entry.getKey());
-                IEdge<K> edge = entry.getValue();
-                if (end.getPrevious() == null) {
-                    LOGGER.debug("出边{}的终点:{}不在最短路径上，跳过", edge, end);
-                    continue;
-                }
-                if (end.getPrevious() == start) {
-                    // 跳过最短路径上的边，因此此时start到end的距离diff必定为0
-                    LOGGER.debug("跳过最短路径上的边:{}", edge);
-                    continue;
-                }
-                long distanceNew = start.getDistance() + edge.getWeight();
-                long distanceOld = end.getDistance();
-                long diff = distanceNew - distanceOld;
-                if (diff >= 0) {
-                    continue;
-                }
-
-                if (end.minEdgeDiff == null) {
-                    EdgeDiff<K> edgeDiff = new EdgeDiff<>(start, end, diff);
-                    end.minEdgeDiff = edgeDiff;
-                    queueWrapper.offer(edgeDiff);
-                    continue;
-                }
-                if (diff < end.minEdgeDiff.diff) {
-                    int index = end.minEdgeDiff.getIndex();
-                    if (index != Heap.NOT_IN_HEAP) {
-                        queueWrapper.removeEdgeDiff(end.minEdgeDiff, true);
-                    }
-                    EdgeDiff<K> edgeDiff = new EdgeDiff<>(start, end, diff);
-                    end.minEdgeDiff = edgeDiff;
-                    queueWrapper.offer(edgeDiff);
-                }
-            }
-        });
-    }
-
-    /**
-     * 论文中的步骤2
-     */
-    private <V extends BaseDijkVertex<K, V>> void step3(QueueWrapper<K> queueWrapper) {
-        while (!queueWrapper.isEmpty()) {
-            EdgeDiff<K> poll = queueWrapper.poll();
-            LOGGER.debug("选中最短路径:{}", poll);
-            poll.end.changePrevious(poll.start);
-            poll.end.resetWaitSelectAndEdgeDiff();
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
                 vertex.changeDistance(poll.diff);
                 LOGGER.debug("更新最短路径距离:{}", vertex);
@@ -155,30 +100,44 @@ public class ShortestPathTreeUpdater<K> {
                 }
                 vertex.resetWaitSelectAndEdgeDiff();
             });
-            handleSuccessorAndSelfRecursive(poll.end, start -> {
-                Map<K, IEdge<K>> outEdges = start.getVertex().outEdges;
-                for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
-                    V end = (V) vertexMap.get(entry.getKey());
-                    IEdge<K> edge = entry.getValue();
-                    if (!end.isWaitSelect()) {
-                        LOGGER.debug("出边{}的终点:{}非候选节点，跳过", edge, end);
-                        continue;
-                    }
-                    if (end.getPrevious() == null) {
-                        LOGGER.debug("出边{}的终点:{}不在最短路径上，跳过", edge, end);
-                        continue;
-                    }
-                    long distanceNew = start.getDistance() + edge.getWeight();
-                    long distanceOld = end.getDistance();
-                    long diff = distanceNew - distanceOld;
-                    LOGGER.debug("处理出边：{} diff:{}", edge, diff);
-                    if (diff < end.minEdgeDiff.diff) {
-                        end.minEdgeDiff = new EdgeDiff<>(start, end, diff);
-                        queueWrapper.offer(end.minEdgeDiff);
-                    }
-                }
-            });
+            handleOutEdge(queueWrapper, (V)poll.end, edgeFilter);
         }
+    }
+
+    private <V extends BaseDijkVertex<K, V>> void handleOutEdge(QueueWrapper<K> queueWrapper, V endVertex,
+                                                                BiPredicate<V, V> edgeFilter) {
+        // 初始化所有出边
+        handleSuccessorAndSelfRecursive(endVertex, start -> {
+            Map<K, IEdge<K>> outEdges = start.getVertex().outEdges;
+            for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
+                V end = (V) vertexMap.get(entry.getKey());
+                IEdge<K> edge = entry.getValue();
+                if (end.getPrevious() == null) {
+                    LOGGER.debug("出边{}的终点:{}不在最短路径上，跳过", edge, end);
+                    continue;
+                }
+                if (edgeFilter.test(start, end)) {
+                    continue;
+                }
+                long distanceNew = start.getDistance() + edge.getWeight();
+                long distanceOld = end.getDistance();
+                long diff = distanceNew - distanceOld;
+                if (diff >= 0) {
+                    continue;
+                }
+
+                if (end.minEdgeDiff == null || diff < end.minEdgeDiff.diff) {
+                    EdgeDiff<K> edgeDiff = new EdgeDiff<>(start, end, diff);
+                    end.minEdgeDiff = edgeDiff;
+                    queueWrapper.offer(edgeDiff);
+                }
+            }
+        });
+    }
+
+    private static <K, V extends BaseDijkVertex<K, V>> boolean incFilter(V start, V end) {
+        LOGGER.debug("起点：{} 终点:{},终点非候选节点，跳过", start, end);
+        return !end.isWaitSelect();
     }
 
 
@@ -202,6 +161,9 @@ public class ShortestPathTreeUpdater<K> {
                 long distanceNew = start.getDistance() + entry.getValue().getWeight();
                 long distanceOld = end.getDistance();
                 long diff = distanceNew - distanceOld;
+                if (diff >= 0) {
+                    continue;
+                }
                 if (minDiff == null) {
                     minDiff = diff;
                     minEdgeDiffStart = start;
