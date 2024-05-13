@@ -216,6 +216,9 @@ public class ShortestPathTreeUpdater<K> {
 
         @Override
         public int compareTo(EdgeDiff<K> o) {
+            if (diff == o.diff) {
+                return (int) (end.getDistance() - o.end.getDistance());
+            }
             return (int) (diff - o.diff);
         }
 
