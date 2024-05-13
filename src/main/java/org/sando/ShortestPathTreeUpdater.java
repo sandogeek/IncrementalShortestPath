@@ -10,7 +10,10 @@ import static org.sando.PathTreeHelper.handleSuccessorAndSelfRecursive;
 
 /**
  * 最短路径树更新器
- * <p>参考文献：<a href="https://citeseerx.ist.psu.edu/document?repid=rep1&type=pdf&doi=5802c2c7b31f6739d228d8af997bb4d19eda2597">...</a></p>
+ * <p>参考文献：</p>
+ * <a href="https://web.archive.org/web/20151016171618id_/http://www4.comp.polyu.edu.hk/~csbxiao/paper/2007/JCN-SPT.pdf">
+ * An Efficient Algorithm for Dynamic Shortest Path Tree Update in Network Routing</a>
+ * <a href="https://dl.acm.org/doi/pdf/10.1109/90.893870">New dynamic algorithms for shortest path tree computation</a>
  *
  * @author Sando
  * @version 1.0
@@ -100,7 +103,7 @@ public class ShortestPathTreeUpdater<K> {
                 }
                 vertex.resetWaitSelectAndEdgeDiff();
             });
-            handleOutEdge(queueWrapper, (V)poll.end, edgeFilter);
+            handleOutEdge(queueWrapper, (V) poll.end, edgeFilter);
         }
     }
 
