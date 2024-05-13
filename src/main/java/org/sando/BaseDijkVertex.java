@@ -22,9 +22,13 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
      */
     private List<V> successorVertexList;
     /**
-     * 是否是候选节点，边的权重发生变化时使用
+     * 节点状态，边的权重发生变化时使用
      */
-    private boolean waitSelect;
+    private int state;
+    /**
+     * 节点状态：在节点集M中
+     */
+    private static final int IN_M = 1;
     /**
      * 最小的权重变化
      */
@@ -63,17 +67,17 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
         }
     }
 
-    public boolean isWaitSelect() {
-        return waitSelect;
+    public boolean isInM() {
+        return state == IN_M;
     }
 
-    public void resetWaitSelectAndEdgeDiff() {
-        waitSelect = false;
+    public void resetInMAndEdgeDiff() {
+        state = 0;
         minEdgeDiff = null;
     }
 
-    public void markWaitSelect() {
-        waitSelect = true;
+    public void markInM() {
+        state = IN_M;
     }
 
     public V getPrevious() {

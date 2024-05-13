@@ -59,13 +59,13 @@ public class ShortestPathTreeUpdater<K> {
                 return;
             }
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
-                vertex.markWaitSelect();
+                vertex.markInM();
                 vertex.changeDistance(weight - oldWeight);
             });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectInEdge(queueWrapper, endVertex);
             pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
-            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetWaitSelectAndEdgeDiff);
+            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetInMAndEdgeDiff);
         } else {
             // 权重减少
             long distanceNew = startVertex.getDistance() + edge.getWeight();
@@ -101,7 +101,7 @@ public class ShortestPathTreeUpdater<K> {
                         queueWrapper.removeEdgeDiff(kEdgeDiff, true);
                     });
                 }
-                vertex.resetWaitSelectAndEdgeDiff();
+                vertex.resetInMAndEdgeDiff();
             });
             handleOutEdge(queueWrapper, (V) poll.end, edgeFilter);
         }
@@ -140,7 +140,7 @@ public class ShortestPathTreeUpdater<K> {
 
     private static <K, V extends BaseDijkVertex<K, V>> boolean incFilter(V start, V end) {
         LOGGER.debug("起点：{} 终点:{},终点非候选节点，跳过", start, end);
-        return !end.isWaitSelect();
+        return !end.isInM();
     }
 
 
@@ -158,7 +158,7 @@ public class ShortestPathTreeUpdater<K> {
                 if (start.getPrevious() == null) {
                     continue;
                 }
-                if (start.isWaitSelect()) {
+                if (start.isInM()) {
                     continue;
                 }
                 long distanceNew = start.getDistance() + entry.getValue().getWeight();
@@ -185,7 +185,7 @@ public class ShortestPathTreeUpdater<K> {
 
     public boolean checkAllReset() {
         for (BaseDijkVertex<K, ?> kBaseDijkVertex : vertexMap.values()) {
-            boolean waitSelect = kBaseDijkVertex.isWaitSelect();
+            boolean waitSelect = kBaseDijkVertex.isInM();
             if (waitSelect) {
                 return false;
             }
