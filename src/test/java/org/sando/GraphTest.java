@@ -138,6 +138,8 @@ class GraphTest {
         ShortestPathTree<Integer> pathTree = pathTreeCache.getOrCreateShortestPathTree(start);
         if (complete) {
             pathTree.getPrevious(null);
+        } else {
+            pathTree.getPrevious(end);
         }
         SelectEdge result;
         long weightNew;
