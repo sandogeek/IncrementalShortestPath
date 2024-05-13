@@ -29,6 +29,7 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
      * 节点状态：在节点集M中
      */
     private static final int IN_M = 1;
+    private static final int VISITED = 1 << 1;
     /**
      * 最小的权重变化
      */
@@ -68,16 +69,24 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     }
 
     public boolean isInM() {
-        return state == IN_M;
+        return (state & IN_M) > 0;
     }
 
-    public void resetInMAndEdgeDiff() {
+    public boolean isVisited() {
+        return (state & VISITED) > 0;
+    }
+
+    public void resetStateAndEdgeDiff() {
         state = 0;
         minEdgeDiff = null;
     }
 
     public void markInM() {
-        state = IN_M;
+        state |= IN_M;
+    }
+
+    public void markVisited() {
+        state |= VISITED;
     }
 
     public V getPrevious() {
@@ -87,12 +96,12 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     @SuppressWarnings("unchecked")
     public void changePrevious(V previous) {
         if (this.previous != null) {
-            this.previous.removeSuccessor((V)this);
+            this.previous.removeSuccessor((V) this);
         }
         this.previous = previous;
         // 前驱节点不等于自身才需要在当前节点的前驱节点加入当前节点
         if (this.previous != this && this.previous != null) {
-            this.previous.addSuccessor((V)this);
+            this.previous.addSuccessor((V) this);
         }
     }
 

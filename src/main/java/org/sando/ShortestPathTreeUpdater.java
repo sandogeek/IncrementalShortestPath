@@ -24,10 +24,21 @@ public class ShortestPathTreeUpdater<K> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShortestPathTreeUpdater.class);
     private final ShortestPathTree<K> pathTree;
     private Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap;
+    /**
+     * 多边权重变更，是否合并更新
+     */
+    private boolean mergeUpdate;
+    private List<Pair<IEdge<K>, Long>> incList;
+    private List<Pair<IEdge<K>, Long>> decList;
 
-    public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree) {
+    public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree, boolean mergeUpdate) {
         this.pathTree = pathTree;
         vertexMap = pathTree.vertexMap;
+        this.mergeUpdate = mergeUpdate;
+        if (mergeUpdate) {
+            incList = new ArrayList<>();
+            decList = new ArrayList<>();
+        }
     }
 
     private static <K, V extends BaseDijkVertex<K, V>> boolean decFilter(V start, V end) {
@@ -36,6 +47,9 @@ public class ShortestPathTreeUpdater<K> {
         return end.getPrevious() == start;
     }
 
+    /**
+     * 边权重更新
+     */
     public <V extends BaseDijkVertex<K, V>> void edgeUpdate(IEdge<K> edge, long oldWeight) {
         if (!pathTree.complete) {
             throw new UnsupportedOperationException("ShortestPathTreeUpdater only support complete path tree");
@@ -58,6 +72,10 @@ public class ShortestPathTreeUpdater<K> {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
                 return;
             }
+            if (mergeUpdate) {
+                incList.add(Pair.of(edge, oldWeight));
+                return;
+            }
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
                 vertex.markInM();
                 vertex.changeDistance(weight - oldWeight);
@@ -65,9 +83,13 @@ public class ShortestPathTreeUpdater<K> {
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectInEdge(queueWrapper, endVertex);
             pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
-            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetInMAndEdgeDiff);
+            handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetStateAndEdgeDiff);
         } else {
             // 权重减少
+            if (mergeUpdate) {
+                decList.add(Pair.of(edge, oldWeight));
+                return;
+            }
             long distanceNew = startVertex.getDistance() + edge.getWeight();
             long distanceOld = endVertex.getDistance();
             // D(i) + w'(e) < D(j)
@@ -87,6 +109,31 @@ public class ShortestPathTreeUpdater<K> {
         }
     }
 
+    /**
+     * 尝试合并更新
+     */
+    public <V extends BaseDijkVertex<K, V>> void tryMergeUpdate() {
+        if (!mergeUpdate) {
+            return;
+        }
+        QueueWrapper<K> queueWrapper = new QueueWrapper<>();
+        Set<V> mSet = new HashSet<>();
+        for (Pair<IEdge<K>, Long> pair : decList) {
+            IEdge<K> edge = pair.getLeft();
+            Long oldWeight = pair.getRight();
+            long weight = edge.getWeight();
+            V endVertex = (V) vertexMap.get(edge.getEnd());
+            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
+                vertex.markInM();
+                vertex.changeDistance(weight - oldWeight);
+                mSet.add(vertex);
+            });
+            handleDirectInEdge(queueWrapper, endVertex);
+        }
+        pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
+        mSet.forEach(BaseDijkVertex::resetStateAndEdgeDiff);
+    }
+
     private <V extends BaseDijkVertex<K, V>> void pollUntilEmpty(QueueWrapper<K> queueWrapper, BiPredicate<V, V> edgeFilter) {
         while (!queueWrapper.isEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
@@ -101,7 +148,6 @@ public class ShortestPathTreeUpdater<K> {
                         queueWrapper.removeEdgeDiff(kEdgeDiff, true);
                     });
                 }
-                vertex.resetInMAndEdgeDiff();
             });
             handleOutEdge(queueWrapper, (V) poll.end, edgeFilter);
         }

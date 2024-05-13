@@ -32,13 +32,17 @@ public class ShortestPathTree<K> {
     private int selectedCount;
 
     public ShortestPathTree(Graph<K> graph, K root) {
+        this(graph, root, true);
+    }
+
+    public ShortestPathTree(Graph<K> graph, K root, boolean mergeUpdate) {
         if (graph.hasNegativeEdge) {
             throw new IllegalStateException("dijkstra算法不支持负权重边");
         }
         this.graph = graph;
         this.vertexMap = new HashMap<>(graph.size());
         this.root = getOrCreateVertex(root);
-        this.treeUpdater = new ShortestPathTreeUpdater<>(this);
+        this.treeUpdater = new ShortestPathTreeUpdater<>(this, mergeUpdate);
     }
 
     void dijkstra(K target) {
@@ -142,7 +146,7 @@ public class ShortestPathTree<K> {
         // TODO 未完善
         this.vertexMap = new HashMap<>(graph.size());
         this.root = getOrCreateVertex(root.vertex.getK());
-        this.treeUpdater = new ShortestPathTreeUpdater<>(this);
+        this.treeUpdater = new ShortestPathTreeUpdater<>(this, true);
         this.complete = false;
     }
 
