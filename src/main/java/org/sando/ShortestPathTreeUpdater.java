@@ -28,16 +28,16 @@ public class ShortestPathTreeUpdater<K> {
      * 多边权重变更，是否合并更新
      */
     private boolean mergeUpdate;
-    private List<Pair<IEdge<K>, Long>> incList;
-    private List<Pair<IEdge<K>, Long>> decList;
+    private Map<IEdge<K>, Long> incMap;
+    private Map<IEdge<K>, Long> decMap;
 
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree, boolean mergeUpdate) {
         this.pathTree = pathTree;
         vertexMap = pathTree.vertexMap;
         this.mergeUpdate = mergeUpdate;
         if (mergeUpdate) {
-            incList = new ArrayList<>();
-            decList = new ArrayList<>();
+            incMap = new HashMap<>();
+            decMap = new HashMap<>();
         }
     }
 
@@ -73,7 +73,7 @@ public class ShortestPathTreeUpdater<K> {
                 return;
             }
             if (mergeUpdate) {
-                incList.add(Pair.of(edge, oldWeight));
+                incMap.put(edge, oldWeight);
                 return;
             }
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
@@ -87,7 +87,7 @@ public class ShortestPathTreeUpdater<K> {
         } else {
             // 权重减少
             if (mergeUpdate) {
-                decList.add(Pair.of(edge, oldWeight));
+                decMap.put(edge, oldWeight);
                 return;
             }
             long distanceNew = startVertex.getDistance() + edge.getWeight();
@@ -116,11 +116,18 @@ public class ShortestPathTreeUpdater<K> {
         if (!mergeUpdate) {
             return;
         }
+        if (incMap.isEmpty() && decMap.isEmpty()) {
+            return;
+        }
         QueueWrapper<K> queueWrapper = new QueueWrapper<>();
+        mergeUpdateInc(queueWrapper);
+    }
+
+    private <V extends BaseDijkVertex<K, V>> void mergeUpdateInc(QueueWrapper<K> queueWrapper) {
         Set<V> mSet = new HashSet<>();
-        for (Pair<IEdge<K>, Long> pair : decList) {
-            IEdge<K> edge = pair.getLeft();
-            Long oldWeight = pair.getRight();
+        for (Map.Entry<IEdge<K>, Long> pair : incMap.entrySet()) {
+            IEdge<K> edge = pair.getKey();
+            Long oldWeight = pair.getValue();
             long weight = edge.getWeight();
             V endVertex = (V) vertexMap.get(edge.getEnd());
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
@@ -128,10 +135,14 @@ public class ShortestPathTreeUpdater<K> {
                 vertex.changeDistance(weight - oldWeight);
                 mSet.add(vertex);
             });
+        }
+        for (Map.Entry<IEdge<K>, Long> pair : incMap.entrySet()) {
+            V endVertex = (V) vertexMap.get(pair.getKey().getEnd());
             handleDirectInEdge(queueWrapper, endVertex);
         }
         pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
         mSet.forEach(BaseDijkVertex::resetStateAndEdgeDiff);
+        incMap.clear();
     }
 
     private <V extends BaseDijkVertex<K, V>> void pollUntilEmpty(QueueWrapper<K> queueWrapper, BiPredicate<V, V> edgeFilter) {
@@ -191,8 +202,15 @@ public class ShortestPathTreeUpdater<K> {
 
 
     private <V extends BaseDijkVertex<K, V>> void handleDirectInEdge(QueueWrapper<K> queueWrapper, V vertex) {
+        handleSuccessorAndSelfRecursive(vertex, end -> {
+            end.markInM();
+        });
         // 文章中的des(j)
         handleSuccessorAndSelfRecursive(vertex, end -> {
+            if (end.isVisited()) {
+                return;
+            }
+            end.markVisited();
             V parent = end.getPrevious();
             Long minDiff = parent.minEdgeDiff == null ?
                     null : parent.minEdgeDiff.diff;

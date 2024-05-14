@@ -410,9 +410,14 @@ class GraphTest {
         } else {
             pathTree.getPrevious("o");
         }
-        graph1.updateWeight("f", "l", 2);
+        graph1.updateWeight("s", "a", 14);
+        graph1.updateWeight("s", "b", 5);
+        graph1.updateWeight("s", "c", 10);
         ShortestPathTree<String> tree = new ShortestPathTree<>(graph1, "s");
         tree.printAllPath();
+        graph1.walkVertex(v -> {
+            Assertions.assertEquals(tree.getDistance(v.getK()), pathTree.getDistance(v.getK()), String.format("到顶点%s距离不一致", v));
+        });
     }
 
     static class StrEdge implements IEdge<String> {

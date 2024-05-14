@@ -248,6 +248,7 @@ public class ShortestPathTree<K> {
         if (!complete) {
             dijkstra(null);
         }
+        treeUpdater.tryMergeUpdate();
         printCurAllPath();
     }
 
@@ -260,6 +261,7 @@ public class ShortestPathTree<K> {
     }
 
     public Vertex<K> getPrevious(K k) {
+        treeUpdater.tryMergeUpdate();
         DijkstraVertex<K> vertex = tryDoDijkstra(k);
         if (vertex == null) {
             return null;
@@ -275,6 +277,7 @@ public class ShortestPathTree<K> {
      * 获取到end的最短距离
      */
     public long getDistance(K end) {
+        treeUpdater.tryMergeUpdate();
         DijkstraVertex<K> vertex = tryDoDijkstra(end);
         if (vertex == null) {
             return Long.MAX_VALUE;
