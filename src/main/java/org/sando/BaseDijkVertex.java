@@ -85,6 +85,10 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
         state |= IN_M;
     }
 
+    public void unmarkInM() {
+        state &= ~IN_M;
+    }
+
     public void markVisited() {
         state |= VISITED;
     }
@@ -95,6 +99,9 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
 
     @SuppressWarnings("unchecked")
     public void changePrevious(V previous) {
+        if (this.previous == previous) {
+            return;
+        }
         if (this.previous != null) {
             this.previous.removeSuccessor((V) this);
         }
