@@ -50,6 +50,10 @@ public class Graph<K> {
         }
     }
 
+    public Set<K> getVertexSet() {
+        return vertexMap.keySet();
+    }
+
     public Vertex<K> getVertex(K K) {
         return vertexMap.get(K);
     }

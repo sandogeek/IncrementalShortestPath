@@ -17,10 +17,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.io.*;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Random;
+import java.util.*;
 
 /**
  * @author Sando
@@ -124,10 +121,10 @@ class GraphTest {
 
     private void doRandomTest(boolean inc, boolean complete) {
         DirectedWeightedMultigraph<Integer, WeightedEdge> multigraph = generateGraph();
-        ArrayList<Integer> vertexList = new ArrayList<>(multigraph.vertexSet());
+        ArrayList<WeightedEdge> vertexList = new ArrayList<>(multigraph.iterables().getGraph().edgeSet());
         Collections.shuffle(vertexList);
-        Integer start = vertexList.get(0);
-        Integer end = vertexList.get(1);
+        Integer start = (Integer) vertexList.get(0).getSource();
+        Integer end = (Integer) vertexList.get(1).getTarget();
         List<Edge> edges = new ArrayList<>();
         multigraph.iterables().edges().forEach(edge -> {
             edges.add(new Edge((Integer) edge.getSource(), (Integer) edge.getTarget(), (long) edge.getWeight()));
@@ -143,7 +140,7 @@ class GraphTest {
         }
         List<SelectEdge> results = new ArrayList<>();
         for (int i = -1; i < rnd.nextInt(4); i++) {
-            selectEdge(inc, vertexList, pathTree, results, edges);
+            selectEdge(inc, new ArrayList<>(graph.getVertexSet()), pathTree, results, edges);
         }
         results.forEach(result -> {
             long weightOld = result.edge.getWeight();
@@ -169,7 +166,7 @@ class GraphTest {
         });
     }
 
-    private void selectEdge(boolean inc, ArrayList<Integer> vertexList, ShortestPathTree<Integer> pathTree, List<SelectEdge> results, List<Edge> edges) {
+    private void selectEdge(boolean inc, List<Integer> vertexList, ShortestPathTree<Integer> pathTree, List<SelectEdge> results, List<Edge> edges) {
         if (inc) {
             // 模拟权重增加
             int diff = rnd.nextInt(100);
@@ -194,9 +191,9 @@ class GraphTest {
     /**
      * 选中一条最短路径上的边
      */
-    private SelectEdge selectEdge(ArrayList<Integer> vertexList, ShortestPathTree<Integer> pathTree, int diff) {
-        Vertex<Integer> startVertex = null;
-        Vertex<Integer> endVertex = null;
+    private SelectEdge selectEdge(List<Integer> vertexList, ShortestPathTree<Integer> pathTree, int diff) {
+        Vertex<Integer> startVertex;
+        Vertex<Integer> endVertex;
         do {
             Integer end = vertexList.get(rnd.nextInt(vertexList.size()));
             endVertex = graph.getVertex(end);
