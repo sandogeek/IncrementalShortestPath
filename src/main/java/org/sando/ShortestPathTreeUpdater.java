@@ -28,16 +28,14 @@ public class ShortestPathTreeUpdater<K> {
      * 多边权重变更，是否合并更新
      */
     private boolean mergeUpdate;
-    private Map<IEdge<K>, Long> incMap;
-    private Map<IEdge<K>, Long> decMap;
+    private Map<IEdge<K>, Long> changeMap;
 
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree, boolean mergeUpdate) {
         this.pathTree = pathTree;
         vertexMap = pathTree.vertexMap;
         this.mergeUpdate = mergeUpdate;
         if (mergeUpdate) {
-            incMap = new HashMap<>();
-            decMap = new HashMap<>();
+            changeMap = new HashMap<>();
         }
     }
 
@@ -68,6 +66,13 @@ public class ShortestPathTreeUpdater<K> {
             // 该边起点不可达
             return;
         }
+        if (mergeUpdate) {
+            Long old = changeMap.putIfAbsent(edge, oldWeight);
+            if (old != null && edge.getWeight() == old) {
+                changeMap.remove(edge);
+            }
+            return;
+        }
         V endVertex = (V) vertexMap.get(end);
         if (weight > oldWeight) {
             // 权重增加
@@ -75,13 +80,10 @@ public class ShortestPathTreeUpdater<K> {
                 // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
                 return;
             }
-            if (mergeUpdate) {
-                incMap.putIfAbsent(edge, oldWeight);
-                return;
-            }
+            long diff = weight - oldWeight;
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
                 vertex.markInM();
-                vertex.changeDistance(weight - oldWeight);
+                vertex.changeDistance(diff);
             });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectInEdge(queueWrapper, endVertex);
@@ -89,10 +91,6 @@ public class ShortestPathTreeUpdater<K> {
             handleSuccessorAndSelfRecursive(endVertex, BaseDijkVertex::resetStateAndEdgeDiff);
         } else {
             // 权重减少
-            if (mergeUpdate) {
-                decMap.put(edge, oldWeight);
-                return;
-            }
             long distanceNew = startVertex.getDistance() + edge.getWeight();
             long distanceOld = endVertex.getDistance();
             // D(i) + w'(e) < D(j)
@@ -119,21 +117,31 @@ public class ShortestPathTreeUpdater<K> {
         if (!mergeUpdate) {
             return;
         }
-        if (incMap.isEmpty() && decMap.isEmpty()) {
+        if (changeMap.isEmpty()) {
             return;
         }
         QueueWrapper<K> queueWrapper = new QueueWrapper<>();
+        mergeUpdateDec(queueWrapper);
         mergeUpdateInc(queueWrapper);
+    }
+
+    private void mergeUpdateDec(QueueWrapper<K> queueWrapper) {
+        // TODO
     }
 
     private <V extends BaseDijkVertex<K, V>> void mergeUpdateInc(QueueWrapper<K> queueWrapper) {
         Set<V> mSet = new HashSet<>();
-        for (Map.Entry<IEdge<K>, Long> pair : incMap.entrySet()) {
+        for (Map.Entry<IEdge<K>, Long> pair : changeMap.entrySet()) {
             IEdge<K> edge = pair.getKey();
+            V startVertex = (V) vertexMap.get(edge.getStart());
+            V endVertex = (V) vertexMap.get(edge.getEnd());
+            if (endVertex.getPrevious() != startVertex) {
+                // 说明这条边不在最短路径树上，不会对原来的最短路径树造成影响
+                return;
+            }
             Long oldWeight = pair.getValue();
             long weight = edge.getWeight();
             long diff = weight - oldWeight;
-            V endVertex = (V) vertexMap.get(edge.getEnd());
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
                 vertex.markInM();
                 vertex.changeDistance(diff);
@@ -141,13 +149,13 @@ public class ShortestPathTreeUpdater<K> {
                 mSet.add(vertex);
             });
         }
-        for (Map.Entry<IEdge<K>, Long> pair : incMap.entrySet()) {
+        for (Map.Entry<IEdge<K>, Long> pair : changeMap.entrySet()) {
             V endVertex = (V) vertexMap.get(pair.getKey().getEnd());
             handleDirectInEdge(queueWrapper, endVertex);
         }
         pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::incFilter);
         mSet.forEach(BaseDijkVertex::resetStateAndEdgeDiff);
-        incMap.clear();
+        changeMap.clear();
     }
 
     private <V extends BaseDijkVertex<K, V>> void pollUntilEmpty(QueueWrapper<K> queueWrapper, BiPredicate<V, V> edgeFilter) {
@@ -162,13 +170,7 @@ public class ShortestPathTreeUpdater<K> {
                     vertex.changeDistance(poll.diff);
                     LOGGER.debug("更新最短路径距离:{}", vertex);
                 }
-                vertex.minEdgeDiff = null;
-                List<EdgeDiff<K>> edgeDiffs = queueWrapper.getEdgeDiffByEnd(vertex);
-                if (!edgeDiffs.isEmpty()) {
-                    edgeDiffs.forEach(kEdgeDiff -> {
-                        queueWrapper.removeEdgeDiff(kEdgeDiff, true);
-                    });
-                }
+                vertex.replaceMinEdgeDiff(null);
             });
             handleOutEdge(queueWrapper, (V) poll.end, edgeFilter);
         }
@@ -196,9 +198,10 @@ public class ShortestPathTreeUpdater<K> {
                     continue;
                 }
 
-                if (end.minEdgeDiff == null || diff < end.minEdgeDiff.diff) {
+                EdgeDiff<K> minEdgeDiff = end.getMinEdgeDiff();
+                if (minEdgeDiff == null || diff < minEdgeDiff.diff) {
                     EdgeDiff<K> edgeDiff = new EdgeDiff<>(start, end, diff);
-                    end.minEdgeDiff = edgeDiff;
+                    end.replaceMinEdgeDiff(edgeDiff);
                     queueWrapper.offer(edgeDiff);
                 }
             }
@@ -222,10 +225,10 @@ public class ShortestPathTreeUpdater<K> {
             }
             end.markVisited();
             V parent = end.getPrevious();
-            Long minDiff = parent.minEdgeDiff == null ?
-                    null : parent.minEdgeDiff.diff;
+            Long minDiff = parent.getMinEdgeDiff() == null ?
+                    null : parent.getMinEdgeDiff().diff;
             V minEdgeDiffStart = null;
-            EdgeDiff<K> minEdgeDiff = parent.minEdgeDiff;
+            EdgeDiff<K> minEdgeDiff = parent.getMinEdgeDiff();
             Map<K, IEdge<K>> inEdges = end.getVertex().inEdges;
             for (Map.Entry<K, IEdge<K>> entry : inEdges.entrySet()) {
                 V start = (V) vertexMap.get(entry.getKey());
@@ -253,7 +256,7 @@ public class ShortestPathTreeUpdater<K> {
                 minEdgeDiff = new EdgeDiff<>(minEdgeDiffStart, end, minDiff);
                 queueWrapper.offer(minEdgeDiff);
             }
-            end.minEdgeDiff = minEdgeDiff;
+            end.replaceMinEdgeDiff(minEdgeDiff);
         });
     }
 
@@ -263,7 +266,7 @@ public class ShortestPathTreeUpdater<K> {
             if (waitSelect) {
                 return false;
             }
-            if (kBaseDijkVertex.minEdgeDiff != null) {
+            if (kBaseDijkVertex.getMinEdgeDiff() != null) {
                 return false;
             }
         }
@@ -276,16 +279,46 @@ public class ShortestPathTreeUpdater<K> {
         BaseDijkVertex start;
         BaseDijkVertex end;
         private long diff;
-        int index;
+        private int index = Heap.NOT_IN_HEAP;
+        private Heap<?> heap;
+        /**
+         * 持有当前对象的{@link BaseDijkVertex}数量
+         */
+        private int count;
 
         @Override
         public void indexChange(Heap<?> heap, int index) {
             this.index = index;
+            if (this.heap != null && this.heap != heap) {
+                throw new IllegalArgumentException("should not put this into two heap");
+            }
+            if (index == Heap.NOT_IN_HEAP) {
+                LOGGER.debug("移除edgeDiff:{}", this);
+            }
+            this.heap = heap;
+        }
+
+        public void remove() {
+            if (index == Heap.NOT_IN_HEAP) {
+                return;
+            }
+            heap.remove(this);
         }
 
         @Override
         public int getIndex() {
             return index;
+        }
+
+        public void incCount() {
+            count++;
+        }
+
+        public void decCount() {
+            count--;
+            if (count <= 0) {
+                remove();
+            }
         }
 
         @Override
@@ -314,20 +347,15 @@ public class ShortestPathTreeUpdater<K> {
 
     static class QueueWrapper<K> {
         private Heap<EdgeDiff<K>> queue = new Heap<>();
-        private Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>>> start2End = new HashMap<>();
-        private Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>>> end2Start = new HashMap<>();
 
         @SuppressWarnings("unchecked")
         public void offer(EdgeDiff<K> edgeDiff) {
             queue.offer(edgeDiff);
             LOGGER.debug("增加edgeDiff:{}", edgeDiff);
-            start2End.computeIfAbsent(edgeDiff.start, edge -> new HashMap<>()).put(edgeDiff.end, edgeDiff);
-            end2Start.computeIfAbsent(edgeDiff.end, edge -> new HashMap<>()).put(edgeDiff.start, edgeDiff);
         }
 
         public EdgeDiff<K> poll() {
             EdgeDiff<K> edgeDiff = queue.poll();
-            removeEdgeDiff(edgeDiff, false);
             return edgeDiff;
         }
 
@@ -335,85 +363,8 @@ public class ShortestPathTreeUpdater<K> {
             queue.priorityChange(index, compareResult);
         }
 
-        public void removeContainVertex(BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> vertex) {
-            Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>> map = start2End.get(vertex);
-            if (map != null) {
-                Iterator<EdgeDiff<K>> iterator = map.values().iterator();
-                while (iterator.hasNext()) {
-                    EdgeDiff<K> next = iterator.next();
-                    queue.remove(next);
-                    iterator.remove();
-                    removeEdgeFromEnd(next);
-                }
-            }
-
-            map = end2Start.get(vertex);
-            if (map != null) {
-                Iterator<EdgeDiff<K>> iterator = map.values().iterator();
-                while (iterator.hasNext()) {
-                    EdgeDiff<K> next = iterator.next();
-                    queue.remove(next);
-                    iterator.remove();
-                    removeEdgeFromStart(next);
-                }
-            }
-        }
-
-        public void removeEdgeDiff(EdgeDiff<K> edgeDiff, boolean removeFromQueue) {
-            if (removeFromQueue) {
-                queue.remove(edgeDiff);
-            }
-            LOGGER.debug("移除edgeDiff:{}", edgeDiff);
-            removeEdgeFromStart(edgeDiff);
-            removeEdgeFromEnd(edgeDiff);
-        }
-
-        private void removeEdgeFromStart(EdgeDiff<K> edgeDiff) {
-            Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>> map = start2End.get(edgeDiff.start);
-            if (map != null) {
-                map.remove(edgeDiff.end);
-            }
-        }
-
-        private void removeEdgeFromEnd(EdgeDiff<K> edgeDiff) {
-            Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>> map = end2Start.get(edgeDiff.end);
-            if (map != null) {
-                map.remove(edgeDiff.start);
-            }
-        }
-
         public boolean isEmpty() {
             return queue.isEmpty();
-        }
-
-        /**
-         * 根据起点，终点获取队列中EdgeDiff
-         */
-        public EdgeDiff<K> getEdgeDiff(BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> start, BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> end) {
-            Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>> map = start2End.get(start);
-            if (map != null) {
-                return map.get(end);
-            }
-            return null;
-        }
-
-        /**
-         * 根据起点，终点获取队列中EdgeDiff
-         */
-        public List<EdgeDiff<K>> getEdgeDiffByEnd(BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> end) {
-            List<EdgeDiff<K>> result = Collections.emptyList();
-            Map<BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>>, EdgeDiff<K>> map = end2Start.get(end);
-            if (map != null) {
-                return new ArrayList<>(map.values());
-            }
-            return result;
-        }
-
-        public boolean containVertex(BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> vertex) {
-            if (start2End.containsKey(vertex)) {
-                return true;
-            }
-            return end2Start.containsKey(vertex);
         }
     }
 }

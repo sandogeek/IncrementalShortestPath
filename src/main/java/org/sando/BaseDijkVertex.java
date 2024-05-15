@@ -33,7 +33,7 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     /**
      * 最小的权重变化
      */
-    ShortestPathTreeUpdater.EdgeDiff<K> minEdgeDiff;
+    private ShortestPathTreeUpdater.EdgeDiff<K> minEdgeDiff;
 
     public boolean hasSuccessor() {
         return successorVertexList != null && !successorVertexList.isEmpty();
@@ -117,4 +117,25 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     public abstract long getDistance();
 
     public abstract Vertex<K> getVertex();
+
+    public ShortestPathTreeUpdater.EdgeDiff<K> getMinEdgeDiff() {
+        return minEdgeDiff;
+    }
+
+    /**
+     * 替换minEdgeDiff,被替换的EdgeDiff可能会因为不再被需要而从Heap中移除
+     * @param minEdgeDiff
+     */
+    public void replaceMinEdgeDiff(ShortestPathTreeUpdater.EdgeDiff<K> minEdgeDiff) {
+        if (this.minEdgeDiff == minEdgeDiff) {
+            return;
+        }
+        if (minEdgeDiff != null) {
+            minEdgeDiff.incCount();
+        }
+        if (this.minEdgeDiff != null) {
+            this.minEdgeDiff.decCount();
+        }
+        this.minEdgeDiff = minEdgeDiff;
+    }
 }
