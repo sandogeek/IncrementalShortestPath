@@ -422,11 +422,10 @@ class GraphTest {
         if (useCompleteTree) {
             pathTree.getPrevious(null);
         } else {
-            pathTree.getPrevious("o");
+            pathTree.getPrevious("g");
+            pathTree.printTmpPath();
         }
-        graph1.updateWeight("s", "a", 14);
-        graph1.updateWeight("s", "b", 5);
-        graph1.updateWeight("s", "c", 10);
+        graph1.updateWeight("b", "g", 10);
         ShortestPathTree<String> tree = new ShortestPathTree<>(graph1, "s");
         tree.printAllPath();
         graph1.walkVertex(v -> {

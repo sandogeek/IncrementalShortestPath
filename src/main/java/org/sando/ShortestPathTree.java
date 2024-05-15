@@ -108,18 +108,22 @@ public class ShortestPathTree<K> {
         if (weight == oldWeight) {
             return;
         }
-        if (!complete && heapWrapper != null) {
-            int pct = selectedCount * 100 / vertexMap.size();
-            if (pct > 60) {
-                // 最短路径树已经比较完整了，直接补充完整后用DSPT算法更新
-                dijkstra(null);
-                treeUpdater.edgeUpdate(edge, oldWeight);
-                return;
-            }
-            edgeUpdateOnNotComplete(edge);
-            return;
-        }
+//        if (!complete && heapWrapper != null) {
+//            int pct = selectedCount * 100 / vertexMap.size();
+//            if (pct > 60) {
+//                // 最短路径树已经比较完整了，直接补充完整后用DSPT算法更新
+//                dijkstra(null);
+//                treeUpdater.edgeUpdate(edge, oldWeight);
+//                return;
+//            }
+//            edgeUpdateOnNotComplete(edge);
+//            return;
+//        }
         treeUpdater.edgeUpdate(edge, oldWeight);
+        treeUpdater.tryMergeUpdate();
+        printTmpPath();
+        System.out.println("打印临时路径结束");
+        printCurAllPath();
     }
 
     private void edgeUpdateOnNotComplete(IEdge<K> edge) {
@@ -232,6 +236,7 @@ public class ShortestPathTree<K> {
     public void printTmpPath() {
         Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = this.vertexMap;
         if (!complete) {
+            System.out.println(heapWrapper);
             vertexMap = heapWrapper.map;
         }
         for (BaseDijkVertex<K, ? extends BaseDijkVertex<K, ?>> vertex : vertexMap.values()) {
@@ -350,9 +355,12 @@ public class ShortestPathTree<K> {
 
         @Override
         public long changeDistance(long diff) {
+            if (diff == 0) {
+                return getDistance();
+            }
             long result = dVertex.changeDistance(diff);
             if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index, diff == 0 ? 0 : (diff > 0 ? 1 : -1));
+                heap.priorityChange(index,diff > 0 ? 1 : -1);
             }
             return result;
         }
@@ -374,7 +382,7 @@ public class ShortestPathTree<K> {
 
         @Override
         public String toString() {
-            return dVertex.toString();
+            return "("+getVertex()+","+getDistance()+ ","+ selected+")";
         }
     }
 }

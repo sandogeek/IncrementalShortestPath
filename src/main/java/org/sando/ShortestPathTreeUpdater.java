@@ -52,8 +52,11 @@ public class ShortestPathTreeUpdater<K> {
      * 边权重更新
      */
     public <V extends BaseDijkVertex<K, V>> void edgeUpdate(IEdge<K> edge, long oldWeight) {
+//        if (!pathTree.complete) {
+//            throw new UnsupportedOperationException("ShortestPathTreeUpdater only support complete path tree");
+//        }
         if (!pathTree.complete) {
-            throw new UnsupportedOperationException("ShortestPathTreeUpdater only support complete path tree");
+            vertexMap = pathTree.heapWrapper.map;
         }
         long weight = edge.getWeight();
         if (weight == oldWeight) {
