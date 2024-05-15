@@ -138,10 +138,7 @@ class GraphTest {
         } else {
             pathTree.getPrevious(end);
         }
-        List<SelectEdge> results = new ArrayList<>();
-        for (int i = -1; i < rnd.nextInt(4); i++) {
-            selectEdge(inc, new ArrayList<>(graph.getVertexSet()), pathTree, results, edges);
-        }
+        List<SelectEdge> results = selectEdge(rnd.nextInt(4) + 1, inc, new ArrayList<>(graph.getVertexSet()), pathTree, edges);
         results.forEach(result -> {
             long weightOld = result.edge.getWeight();
             long weightNew = weightOld + result.diff;
@@ -166,26 +163,33 @@ class GraphTest {
         });
     }
 
-    private void selectEdge(boolean inc, List<Integer> vertexList, ShortestPathTree<Integer> pathTree, List<SelectEdge> results, List<Edge> edges) {
+    private List<SelectEdge> selectEdge(int count, boolean inc, List<Integer> vertexList, ShortestPathTree<Integer> pathTree, List<Edge> edges) {
+        List<SelectEdge> results = new ArrayList<>();
         if (inc) {
-            // 模拟权重增加
-            int diff = rnd.nextInt(100);
-            diff = diff == 0 ? 1 : diff;
-            SelectEdge selectEdge = selectEdge(vertexList, pathTree, diff);
-            if (selectEdge != null) {
-                results.add(selectEdge);
+            for (int i = 0; i < count; i++) {
+                // 模拟权重增加
+                int diff = rnd.nextInt(100);
+                diff = diff == 0 ? 1 : diff;
+                SelectEdge selectEdge = selectEdge(vertexList, pathTree, diff);
+                if (selectEdge != null) {
+                    results.add(selectEdge);
+                }
             }
         } else {
             // 权重减少
-            Edge edge = edges.get(rnd.nextInt(edges.size()));
-            Vertex<Integer> startVertex = graph.getVertex(edge.getStart());
-            Vertex<Integer> endVertex = graph.getVertex(edge.getEnd());
-            // 模拟权重增加
-            long weight = edge.getWeight();
-            int diff = -rnd.nextInt((int) weight);
-            diff = diff == 0 ? -1 : diff;
-            results.add(new SelectEdge(startVertex, endVertex, edge, diff));
+            Collections.shuffle(edges);
+            edges = edges.subList(0, count);
+            edges.forEach(edge -> {
+                Vertex<Integer> startVertex = graph.getVertex(edge.getStart());
+                Vertex<Integer> endVertex = graph.getVertex(edge.getEnd());
+                // 模拟权重减少
+                long weight = edge.getWeight();
+                int diff = -rnd.nextInt((int) weight);
+                diff = (diff == 0) ? -1 : diff;
+                results.add(new SelectEdge(startVertex, endVertex, edge, diff));
+            });
         }
+        return results;
     }
 
     /**
@@ -270,7 +274,7 @@ class GraphTest {
         graph.setVertexSupplier(SupplierUtil.createIntegerSupplier(1));
 
         GnpRandomGraphGenerator<Integer, WeightedEdge> generator
-                = new GnpRandomGraphGenerator<>(10, 0.4);
+                = new GnpRandomGraphGenerator<>(40, 0.4);
         generator.generateGraph(graph);
 
         for (WeightedEdge edge : graph.edgeSet()) {

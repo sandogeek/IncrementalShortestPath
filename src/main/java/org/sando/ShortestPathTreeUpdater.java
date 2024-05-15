@@ -125,15 +125,48 @@ public class ShortestPathTreeUpdater<K> {
         mergeUpdateInc(queueWrapper);
     }
 
-    private void mergeUpdateDec(QueueWrapper<K> queueWrapper) {
-        // TODO
-//        changeMap.entrySet().removeIf(pair -> {
-//            IEdge<K> edge = pair.getKey();
-//            Long oldWeight = pair.getValue();
-//            if (edge.getWeight() > oldWeight) {
-//
-//            }
-//        });
+    private <V extends BaseDijkVertex<K, V>> void mergeUpdateDec(QueueWrapper<K> queueWrapper) {
+        List<Map.Entry<IEdge<K>, Long>> decList = new ArrayList<>();
+        changeMap.entrySet().removeIf(pair -> {
+            IEdge<K> edge = pair.getKey();
+            Long oldWeight = pair.getValue();
+            if (edge.getWeight() < oldWeight) {
+                decList.add(Pair.of(edge, oldWeight));
+                return true;
+            }
+            return false;
+        });
+        Iterator<Map.Entry<IEdge<K>, Long>> iterator = decList.iterator();
+        while (iterator.hasNext()) {
+            Map.Entry<IEdge<K>, Long> entry = iterator.next();
+            IEdge<K> edge = entry.getKey();
+            V startVertex = (V) vertexMap.get(edge.getStart());
+            V endVertex = (V) vertexMap.get(edge.getEnd());
+            long distanceNew = startVertex.getDistance() + edge.getWeight();
+            long distanceOld = endVertex.getDistance();
+            // D(i) + w'(e) < D(j)
+            if (distanceNew >= distanceOld) {
+                // 说明权值变小的边影响不到最短路径树
+                iterator.remove();
+                LOGGER.debug("跳过变动边{}", edge);
+                continue;
+            }
+            long diff = distanceNew - distanceOld;
+            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
+                vertex.changeDistance(diff);
+            });
+            // P(j) = i
+            endVertex.changePrevious(startVertex);
+        }
+        for (Map.Entry<IEdge<K>, Long> entry : decList) {
+            IEdge<K> edge = entry.getKey();
+            V endVertex = (V) vertexMap.get(edge.getEnd());
+            handleOutEdge(queueWrapper, endVertex, ShortestPathTreeUpdater::decFilter);
+        }
+        pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::decFilter);
+        if (!queueWrapper.isEmpty()) {
+            queueWrapper.clear();
+        }
     }
 
     private <V extends BaseDijkVertex<K, V>> void mergeUpdateInc(QueueWrapper<K> queueWrapper) {
@@ -361,6 +394,10 @@ public class ShortestPathTreeUpdater<K> {
         public EdgeDiff<K> poll() {
             EdgeDiff<K> edgeDiff = queue.poll();
             return edgeDiff;
+        }
+
+        public void clear() {
+            queue.clear();
         }
 
         public void priorityChange(int index, int compareResult) {
