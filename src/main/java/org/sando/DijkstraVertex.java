@@ -1,5 +1,7 @@
 package org.sando;
 
+import java.util.Objects;
+
 /**
  * dijkstra计算过程中使用的顶点
  *
@@ -19,7 +21,7 @@ class DijkstraVertex<K> extends BaseDijkVertex<K, DijkstraVertex<K>> {
 
 
     public DijkstraVertex(Vertex<K> vertex) {
-        this.vertex = vertex;
+        this.vertex = Objects.requireNonNull(vertex);
         this.distance = Long.MAX_VALUE;
     }
 
