@@ -127,6 +127,13 @@ public class ShortestPathTreeUpdater<K> {
 
     private void mergeUpdateDec(QueueWrapper<K> queueWrapper) {
         // TODO
+//        changeMap.entrySet().removeIf(pair -> {
+//            IEdge<K> edge = pair.getKey();
+//            Long oldWeight = pair.getValue();
+//            if (edge.getWeight() > oldWeight) {
+//
+//            }
+//        });
     }
 
     private <V extends BaseDijkVertex<K, V>> void mergeUpdateInc(QueueWrapper<K> queueWrapper) {
@@ -220,9 +227,6 @@ public class ShortestPathTreeUpdater<K> {
     private <V extends BaseDijkVertex<K, V>> void handleDirectInEdge(QueueWrapper<K> queueWrapper, V vertex) {
         // 文章中的des(j)
         handleSuccessorAndSelfRecursive(vertex, end -> {
-            if (end.isVisited()) {
-                return;
-            }
             end.markVisited();
             V parent = end.getPrevious();
             Long minDiff = parent.getMinEdgeDiff() == null ?
@@ -257,7 +261,7 @@ public class ShortestPathTreeUpdater<K> {
                 queueWrapper.offer(minEdgeDiff);
             }
             end.replaceMinEdgeDiff(minEdgeDiff);
-        });
+        }, BaseDijkVertex::isVisited);
     }
 
     public boolean checkAllReset() {
