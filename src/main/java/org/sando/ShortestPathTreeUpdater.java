@@ -23,7 +23,6 @@ import static org.sando.PathTreeHelper.handleSuccessorAndSelfRecursive;
 public class ShortestPathTreeUpdater<K> {
     private static final Logger LOGGER = LoggerFactory.getLogger(ShortestPathTreeUpdater.class);
     private final ShortestPathTree<K> pathTree;
-    private Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap;
     /**
      * 多边权重变更，是否合并更新
      */
@@ -32,7 +31,6 @@ public class ShortestPathTreeUpdater<K> {
 
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree, boolean mergeUpdate) {
         this.pathTree = pathTree;
-        vertexMap = pathTree.vertexMap;
         this.mergeUpdate = mergeUpdate;
         if (mergeUpdate) {
             changeMap = new HashMap<>();
@@ -55,16 +53,13 @@ public class ShortestPathTreeUpdater<K> {
 //        if (!pathTree.complete) {
 //            throw new UnsupportedOperationException("ShortestPathTreeUpdater only support complete path tree");
 //        }
-        if (!pathTree.complete) {
-            vertexMap = pathTree.heapWrapper.map;
-        }
         long weight = edge.getWeight();
         if (weight == oldWeight) {
             return;
         }
         K start = edge.getStart();
         K end = edge.getEnd();
-        V startVertex = (V) vertexMap.get(start);
+        V startVertex = (V) getVertexMap().get(start);
         if (startVertex.getPrevious() == null) {
             // 该边起点不可达
             return;
@@ -76,7 +71,7 @@ public class ShortestPathTreeUpdater<K> {
             }
             return;
         }
-        V endVertex = (V) vertexMap.get(end);
+        V endVertex = (V) getVertexMap().get(end);
         if (weight > oldWeight) {
             // 权重增加
             if (endVertex.getPrevious() != startVertex) {
@@ -113,6 +108,14 @@ public class ShortestPathTreeUpdater<K> {
         }
     }
 
+    private Map<K, ? extends BaseDijkVertex<K, ?>> getVertexMap() {
+        if (!pathTree.complete) {
+            return pathTree.heapWrapper.map;
+        } else {
+            return pathTree.vertexMap;
+        }
+    }
+
     /**
      * 尝试合并更新
      */
@@ -139,6 +142,7 @@ public class ShortestPathTreeUpdater<K> {
             }
             return false;
         });
+        Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = getVertexMap();
         Iterator<Map.Entry<IEdge<K>, Long>> iterator = decList.iterator();
         while (iterator.hasNext()) {
             Map.Entry<IEdge<K>, Long> entry = iterator.next();
@@ -174,6 +178,7 @@ public class ShortestPathTreeUpdater<K> {
 
     private <V extends BaseDijkVertex<K, V>> void mergeUpdateInc(QueueWrapper<K> queueWrapper) {
         Set<V> mSet = new HashSet<>();
+        Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = getVertexMap();
         for (Map.Entry<IEdge<K>, Long> pair : changeMap.entrySet()) {
             IEdge<K> edge = pair.getKey();
             V startVertex = (V) vertexMap.get(edge.getStart());
@@ -222,6 +227,7 @@ public class ShortestPathTreeUpdater<K> {
     private <V extends BaseDijkVertex<K, V>> void handleOutEdge(QueueWrapper<K> queueWrapper, V endVertex,
                                                                 BiPredicate<V, V> edgeFilter) {
         // 初始化所有出边
+        Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = getVertexMap();
         handleSuccessorAndSelfRecursive(endVertex, start -> {
             Map<K, IEdge<K>> outEdges = start.getVertex().outEdges;
             for (Map.Entry<K, IEdge<K>> entry : outEdges.entrySet()) {
@@ -262,6 +268,7 @@ public class ShortestPathTreeUpdater<K> {
 
     private <V extends BaseDijkVertex<K, V>> void handleDirectInEdge(QueueWrapper<K> queueWrapper, V vertex) {
         // 文章中的des(j)
+        Map<K, ? extends BaseDijkVertex<K, ?>> vertexMap = getVertexMap();
         handleSuccessorAndSelfRecursive(vertex, end -> {
             end.markVisited();
             V parent = end.getPrevious();
@@ -301,7 +308,7 @@ public class ShortestPathTreeUpdater<K> {
     }
 
     public boolean checkAllReset() {
-        for (BaseDijkVertex<K, ?> kBaseDijkVertex : vertexMap.values()) {
+        for (BaseDijkVertex<K, ?> kBaseDijkVertex : getVertexMap().values()) {
             boolean waitSelect = kBaseDijkVertex.isInM();
             if (waitSelect) {
                 return false;

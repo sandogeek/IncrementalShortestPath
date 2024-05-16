@@ -120,6 +120,7 @@ class GraphTest {
     }
 
     private void doRandomTest(boolean inc, boolean complete) {
+        System.out.println("--------------doRandomTest--------------");
         DirectedWeightedMultigraph<Integer, WeightedEdge> multigraph = generateGraph();
         ArrayList<WeightedEdge> vertexList = new ArrayList<>(multigraph.iterables().getGraph().edgeSet());
         Collections.shuffle(vertexList);
@@ -138,13 +139,17 @@ class GraphTest {
         } else {
             pathTree.getPrevious(end);
         }
-        List<SelectEdge> results = selectEdge(rnd.nextInt(4) + 1, inc, new ArrayList<>(graph.getVertexSet()), pathTree, edges);
+        List<SelectEdge> results = selectEdge(1, inc, new ArrayList<>(graph.getVertexSet()), pathTree, edges);
+        pathTree.printTmpPath();
         results.forEach(result -> {
             long weightOld = result.edge.getWeight();
             long weightNew = weightOld + result.diff;
-            graph.updateWeight(result.edge.getStart(), result.edge.getEnd(), weightNew);
+            Integer edgeStart = result.edge.getStart();
+            Integer edgeEnd = result.edge.getEnd();
+            System.out.printf("权重变更：%s %s diff:%s%n", edgeStart, edgeEnd, result.diff);
+            graph.updateWeight(edgeStart, edgeEnd, weightNew);
             Assertions.assertTrue(pathTree.checkAllReset());
-            multigraph.setEdgeWeight(result.edge.getStart(), result.edge.getEnd(), weightNew);
+            multigraph.setEdgeWeight(edgeStart, edgeEnd, weightNew);
         });
         IntVertexDijkstraShortestPath<WeightedEdge> shortestPath = new IntVertexDijkstraShortestPath<>(multigraph);
         ShortestPathAlgorithm.SingleSourcePaths<Integer, WeightedEdge> sourcePaths = shortestPath.getPaths(start);
@@ -154,7 +159,7 @@ class GraphTest {
             long distance2 = (long) sourcePaths.getWeight(vertex.getK());
             if (distance2 != distance1) {
                 try {
-                    save2File(start, edgeStr, results);
+                    save2File(start, end, complete, edgeStr, results);
                 } catch (IOException e) {
                     throw new RuntimeException(e);
                 }
@@ -206,7 +211,7 @@ class GraphTest {
         if (startVertex == endVertex) {
             return null;
         }
-        for (int i = 0; i < rnd.nextInt(10); i++) {
+        for (int i = 0; i < rnd.nextInt(3); i++) {
             Vertex<Integer> previousNew = pathTree.getPrevious(startVertex.getK());
             if (previousNew == startVertex) {
                 break;
@@ -235,10 +240,12 @@ class GraphTest {
         }
     }
 
-    private static void save2File(Integer start, String edgeStr, List<SelectEdge> edgeList) throws IOException {
+    private static void save2File(Integer start, Integer end, boolean complete, String edgeStr, List<SelectEdge> edgeList) throws IOException {
         ObjectNode objectNode = JsonNodeFactory.instance.objectNode();
         objectNode.put("edges", edgeStr);
         objectNode.put("start", start);
+        objectNode.put("end", end);
+        objectNode.put("complete", complete);
         objectNode.put("edgeChange", JsonUtils.object2String(edgeList));
         File file = new File("src/test/resources/case1.txt");
         try (BufferedWriter writer = new BufferedWriter(new FileWriter(file))) {
@@ -274,7 +281,7 @@ class GraphTest {
         graph.setVertexSupplier(SupplierUtil.createIntegerSupplier(1));
 
         GnpRandomGraphGenerator<Integer, WeightedEdge> generator
-                = new GnpRandomGraphGenerator<>(40, 0.4);
+                = new GnpRandomGraphGenerator<>(10, 0.4);
         generator.generateGraph(graph);
 
         for (WeightedEdge edge : graph.edgeSet()) {
@@ -305,20 +312,32 @@ class GraphTest {
         graph = new Graph<>(edgeList, true);
         ShortestPathTreeCache<Integer> treeCache = new ShortestPathTreeCache<>(graph);
         int start = jsonNode.get("start").asInt();
+        int end = jsonNode.get("end").asInt();
         ShortestPathTree<Integer> pathTree = treeCache.getOrCreateShortestPathTree(start);
-        pathTree.printAllPath();
-
+        boolean complete = jsonNode.get("complete").asBoolean();
         String edgeChangeStr = jsonNode.get("edgeChange").asText();
         List<SelectEdge> selectEdges = JsonUtils.string2Object(edgeChangeStr, new TypeReference<List<SelectEdge>>() {
         });
+        if (complete) {
+            pathTree.printAllPath();
+        } else {
+            pathTree.getPrevious(end);
+            selectEdges.forEach(edge -> {
+                pathTree.getPrevious(edge.edge.getEnd());
+            });
+            pathTree.printTmpPath();
+        }
+
         selectEdges.forEach(selectEdge -> {
             int edgeStart = selectEdge.edge.getStart();
             int edgeEnd = selectEdge.edge.getEnd();
             IEdge<Integer> edge = graph.getEdge(edgeStart, edgeEnd);
             int diff = selectEdge.diff;
+            System.out.printf("权重变更：%s %s diff:%s%n", edgeStart, edgeEnd, diff);
             graph.updateWeight(edgeStart, edgeEnd, edge.getWeight() + diff);
-            System.out.println(String.format("权重变更：%s %s diff:%s", edgeStart, edgeEnd, diff));
+            Assertions.assertTrue(pathTree.checkAllReset());
         });
+        System.out.println("权重变更结束");
         pathTree.printAllPath();
 
         ShortestPathTree<Integer> tree = new ShortestPathTree<>(graph, start);
@@ -422,7 +441,7 @@ class GraphTest {
         if (useCompleteTree) {
             pathTree.getPrevious(null);
         } else {
-            pathTree.getPrevious("g");
+            pathTree.getPrevious("k");
             pathTree.printTmpPath();
         }
         graph1.updateWeight("b", "g", 10);

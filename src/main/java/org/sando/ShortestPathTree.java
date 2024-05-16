@@ -26,10 +26,6 @@ public class ShortestPathTree<K> {
      */
     boolean complete;
     private ShortestPathTreeUpdater<K> treeUpdater;
-    /**
-     * 当前最短路径树上的节点的数量
-     */
-    private int selectedCount;
 
     public ShortestPathTree(Graph<K> graph, K root) {
         this(graph, root, true);
@@ -60,9 +56,8 @@ public class ShortestPathTree<K> {
         VertexIndex<K> start;
         while (!heapWrapper.isEmpty()) {
             start = heapWrapper.poll();
-//            LOGGER.debug("选中节点：" + start);K
+            LOGGER.debug("选中节点：" + start);
             start.selected = true;
-            selectedCount++;
             start.changePrevious(start.getPrevious());
             // 遍历所有邻接顶点
             for (Map.Entry<K, IEdge<K>> entry : start.dVertex.vertex.outEdges.entrySet()) {
@@ -92,8 +87,10 @@ public class ShortestPathTree<K> {
         DijkstraVertex<K> vertex = end.dVertex;
         long weight = edge.getWeight();
         long distanceNew = start.dVertex.getDistance() + weight;
+        LOGGER.debug("松弛边：start={},end={}", edge.getStart(), heap.getVertexIndex(edge.getEnd()));
         if (distanceNew < vertex.getDistance()) {
             vertex.setDistance(distanceNew);
+            LOGGER.debug("更新节点：{}", vertex);
             end.changePrevious(start);
             if (end.index == Heap.NOT_IN_HEAP) {
                 heap.offer(end);
@@ -108,42 +105,38 @@ public class ShortestPathTree<K> {
         if (weight == oldWeight) {
             return;
         }
-//        if (!complete && heapWrapper != null) {
-//            int pct = selectedCount * 100 / vertexMap.size();
-//            if (pct > 60) {
-//                // 最短路径树已经比较完整了，直接补充完整后用DSPT算法更新
-//                dijkstra(null);
-//                treeUpdater.edgeUpdate(edge, oldWeight);
-//                return;
-//            }
-//            edgeUpdateOnNotComplete(edge);
-//            return;
-//        }
-        treeUpdater.edgeUpdate(edge, oldWeight);
-        treeUpdater.tryMergeUpdate();
-        printTmpPath();
-        System.out.println("打印临时路径结束");
-        printCurAllPath();
+        if (!complete) {
+            if (heapWrapper == null) {
+                return;
+            }
+            List<VertexIndex<K>> cancelList = edgeUpdateOnNotComplete(edge);
+            treeUpdater.edgeUpdate(edge, oldWeight);
+            treeUpdater.tryMergeUpdate();
+            cancelList.forEach(vertex -> {
+                if (vertex.getPrevious().selected) {
+                    LOGGER.debug("节点{}重新进入堆中", vertex);
+                    heapWrapper.offer(vertex);
+                } else {
+                    vertex.resetDistance();
+                }
+            });
+            printTmpPath();
+            System.out.println("打印临时路径结束");
+        } else {
+            treeUpdater.edgeUpdate(edge, oldWeight);
+        }
     }
 
-    private void edgeUpdateOnNotComplete(IEdge<K> edge) {
+    private List<VertexIndex<K>> edgeUpdateOnNotComplete(IEdge<K> edge) {
+        List<VertexIndex<K>> result = new ArrayList<>();
         K end = edge.getEnd();
         VertexIndex<K> viEnd = heapWrapper.getVertexIndex(end);
         PathTreeHelper.handleSuccessorAndSelfRecursive(viEnd, vertex -> {
-            Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
-            vertex.changePrevious(null);
-            vertex.selected = false;
-            selectedCount--;
+            vertex.cancelSelect();
             vertex.removeFromHeap();
-            vertex.dVertex.resetDistance();
-            for (Map.Entry<K, IEdge<K>> entry : inEdges.entrySet()) {
-                VertexIndex<K> viStart = heapWrapper.getVertexIndex(entry.getKey());
-                if (!viStart.selected) {
-                    continue;
-                }
-                relax(heapWrapper, viStart, vertex, entry.getValue());
-            }
+            result.add(vertex);
         });
+        return result;
     }
 
     public void edgeAdd(IEdge<K> edge) {
@@ -331,6 +324,15 @@ public class ShortestPathTree<K> {
             }
         }
 
+        public boolean cancelSelect() {
+            if (!selected) {
+                return false;
+            }
+            this.dVertex.changePrevious(null);
+            selected = false;
+            return true;
+        }
+
         @Override
         public int compareTo(VertexIndex<K> o) {
             return (int) (dVertex.getDistance() - o.dVertex.getDistance());
@@ -360,9 +362,28 @@ public class ShortestPathTree<K> {
             }
             long result = dVertex.changeDistance(diff);
             if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index,diff > 0 ? 1 : -1);
+                heap.priorityChange(index, diff > 0 ? 1 : -1);
             }
             return result;
+        }
+
+        public void updateDistance(long distanceNew) {
+            long distance = getDistance();
+            if (distance == distanceNew) {
+                return;
+            }
+            dVertex.setDistance(distanceNew);
+            if (index != Heap.NOT_IN_HEAP) {
+                heap.priorityChange(index, distanceNew > distance ? 1 : -1);
+            }
+        }
+
+        public void resetDistance() {
+            long distance = getDistance();
+            dVertex.resetDistance();
+            if (index != Heap.NOT_IN_HEAP) {
+                heap.priorityChange(index, getDistance() > distance ? 1 : -1);
+            }
         }
 
         @Override
@@ -382,7 +403,7 @@ public class ShortestPathTree<K> {
 
         @Override
         public String toString() {
-            return "("+getVertex()+","+getDistance()+ ","+ selected+")";
+            return "(" + getVertex() + "," + getDistance() + "," + selected + ")";
         }
     }
 }
