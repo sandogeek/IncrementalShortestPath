@@ -112,14 +112,32 @@ public class ShortestPathTree<K> {
             List<VertexIndex<K>> cancelList = edgeUpdateOnNotComplete(edge);
             treeUpdater.edgeUpdate(edge, oldWeight);
             treeUpdater.tryMergeUpdate();
-            cancelList.forEach(vertex -> {
+            for (VertexIndex<K> vertex : cancelList) {
                 if (vertex.getPrevious().selected) {
-                    LOGGER.debug("节点{}重新进入堆中", vertex);
+                    if (vertex.selected) {
+                        boolean allInSelected = true;
+                        Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
+                        for (K k : inEdges.keySet()) {
+                            VertexIndex<K> vertexIndex = heapWrapper.getVertexIndex(k);
+                            boolean selected = vertexIndex.selected;
+                            if (!selected) {
+                                allInSelected = false;
+                                break;
+                            }
+                        }
+                        if (allInSelected) {
+                            continue;
+                        }
+                    }
+                    LOGGER.debug("节点{}取消选择，并重新进入堆中", vertex);
+                    vertex.cancelSelect();
                     heapWrapper.offer(vertex);
                 } else {
+                    LOGGER.debug("节点{}重置距离并取消选择", vertex);
                     vertex.resetDistance();
+                    vertex.cancelSelect();
                 }
-            });
+            }
             printTmpPath();
             System.out.println("打印临时路径结束");
         } else {
@@ -132,7 +150,6 @@ public class ShortestPathTree<K> {
         K end = edge.getEnd();
         VertexIndex<K> viEnd = heapWrapper.getVertexIndex(end);
         PathTreeHelper.handleSuccessorAndSelfRecursive(viEnd, vertex -> {
-            vertex.cancelSelect();
             vertex.removeFromHeap();
             result.add(vertex);
         });

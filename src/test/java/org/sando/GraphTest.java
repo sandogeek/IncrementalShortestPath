@@ -444,8 +444,11 @@ class GraphTest {
             pathTree.getPrevious("k");
             pathTree.printTmpPath();
         }
+        System.out.println("权重上升：b g 10");
         graph1.updateWeight("b", "g", 10);
+        pathTree.printAllPath();
         ShortestPathTree<String> tree = new ShortestPathTree<>(graph1, "s");
+        System.out.println("正确版本：");
         tree.printAllPath();
         graph1.walkVertex(v -> {
             Assertions.assertEquals(tree.getDistance(v.getK()), pathTree.getDistance(v.getK()), String.format("到顶点%s距离不一致", v));
