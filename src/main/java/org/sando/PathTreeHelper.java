@@ -1,5 +1,6 @@
 package org.sando;
 
+import java.util.function.BiConsumer;
 import java.util.function.Consumer;
 import java.util.function.Function;
 
@@ -16,7 +17,7 @@ public class PathTreeHelper {
     public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorAndSelfRecursive(V vertexRoot,
                                                  Consumer<? super V> vertexConsumer) {
         vertexConsumer.accept(vertexRoot);
-        handleSuccessorRecursive(vertexRoot, vertexConsumer, null);
+        handleSuccessorRecursive(vertexRoot, vertexConsumer, null, null);
     }
 
     public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorAndSelfRecursive(V vertexRoot,
@@ -25,7 +26,7 @@ public class PathTreeHelper {
             return;
         }
         vertexConsumer.accept(vertexRoot);
-        handleSuccessorRecursive(vertexRoot, vertexConsumer, stopConsumeAndRecursive);
+        handleSuccessorRecursive(vertexRoot, vertexConsumer, stopConsumeAndRecursive, null);
     }
 
     /**
@@ -36,13 +37,20 @@ public class PathTreeHelper {
      * @param stopRecursive  是否停止递归该节点的后继节点,并且该节点不会被消费
      */
     public static <K, V extends BaseDijkVertex<K, V>> void handleSuccessorRecursive(V vertexRoot,
-                                          Consumer<? super V> vertexConsumer, Function<? super V, Boolean> stopRecursive) {
-        vertexRoot.walkSuccessor(vertex -> {
+                                          Consumer<? super V> vertexConsumer, Function<? super V, Boolean> stopRecursive,
+                                                                                    BiConsumer<V, Consumer<V>> biConsumer
+    ) {
+        Consumer<V> successConsumer = vertex -> {
             if (stopRecursive != null && stopRecursive.apply(vertex)) {
                 return;
             }
             vertexConsumer.accept(vertex);
-            handleSuccessorRecursive(vertex, vertexConsumer, stopRecursive);
-        });
+            handleSuccessorRecursive(vertex, vertexConsumer, stopRecursive, biConsumer);
+        };
+        if (biConsumer != null) {
+            biConsumer.accept(vertexRoot, successConsumer);
+            return;
+        }
+        vertexRoot.walkSuccessor(successConsumer);
     }
 }

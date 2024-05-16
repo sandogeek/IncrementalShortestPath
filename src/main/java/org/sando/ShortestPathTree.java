@@ -150,7 +150,6 @@ public class ShortestPathTree<K> {
         K end = edge.getEnd();
         VertexIndex<K> viEnd = heapWrapper.getVertexIndex(end);
         PathTreeHelper.handleSuccessorAndSelfRecursive(viEnd, vertex -> {
-            vertex.removeFromHeap();
             result.add(vertex);
         });
         return result;
@@ -225,9 +224,9 @@ public class ShortestPathTree<K> {
     public static <K, V extends BaseDijkVertex<K, V>> StringBuilder getPathStringBuilder(BaseDijkVertex<K, V> target) {
         List<BaseDijkVertex<K, V>> vertexList = new ArrayList<>();
         vertexList.add(target);
-        while (target != null && target.getVertex() != null && target.getPrevious() != target) {
-            vertexList.add(target.getPrevious());
-            target = target.getPrevious();
+        while (target != null && target.getVertex() != null && target.getTmpPrevious() != target) {
+            vertexList.add(target.getTmpPrevious());
+            target = target.getTmpPrevious();
         }
         StringBuilder stringBuilder = new StringBuilder();
         int size = vertexList.size();
@@ -401,6 +400,11 @@ public class ShortestPathTree<K> {
             if (index != Heap.NOT_IN_HEAP) {
                 heap.priorityChange(index, getDistance() > distance ? 1 : -1);
             }
+        }
+
+        @Override
+        public boolean isNotSelected() {
+            return !selected;
         }
 
         @Override

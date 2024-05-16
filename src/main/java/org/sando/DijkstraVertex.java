@@ -48,6 +48,11 @@ class DijkstraVertex<K> extends BaseDijkVertex<K, DijkstraVertex<K>> {
     }
 
     @Override
+    public boolean isNotSelected() {
+        return false;
+    }
+
+    @Override
     public String toString() {
         return "(" + vertex + "," + distance + ")";
     }

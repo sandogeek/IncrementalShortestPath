@@ -64,6 +64,18 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
             return;
         }
         for (V successorVertex : new ArrayList<>(successorVertexList)) {
+            if (successorVertex.isNotSelected()) {
+                continue;
+            }
+            consumer.accept(successorVertex);
+        }
+    }
+
+    public void walkSuccessorWithTmp(Consumer<V> consumer) {
+        if (successorVertexList == null) {
+            return;
+        }
+        for (V successorVertex : new ArrayList<>(successorVertexList)) {
             consumer.accept(successorVertex);
         }
     }
@@ -94,8 +106,17 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
     }
 
     public V getPrevious() {
+        if (isNotSelected()) {
+            return null;
+        }
         return previous;
     }
+
+    public V getTmpPrevious() {
+        return previous;
+    }
+
+    public abstract boolean isNotSelected();
 
     @SuppressWarnings("unchecked")
     public void changePrevious(V previous) {
