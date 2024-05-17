@@ -48,6 +48,17 @@ class DijkstraVertex<K> extends BaseDijkVertex<K, DijkstraVertex<K>> {
     }
 
     @Override
+    public void changeDistanceRecursive(long diff) {
+        if (diff == 0) {
+            return;
+        }
+        changeDistance(diff);
+        walkSuccessor(v -> {
+            v.changeDistanceRecursive(diff);
+        });
+    }
+
+    @Override
     public boolean isNotSelected() {
         return false;
     }

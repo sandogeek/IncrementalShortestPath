@@ -79,9 +79,9 @@ public class ShortestPathTreeUpdater<K> {
                 return;
             }
             long diff = weight - oldWeight;
+            endVertex.changeDistanceRecursive(diff);
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
                 vertex.markInM();
-                vertex.changeDistance(diff);
             });
             QueueWrapper<K> queueWrapper = new QueueWrapper<>();
             handleDirectInEdge(queueWrapper, endVertex);
@@ -159,9 +159,7 @@ public class ShortestPathTreeUpdater<K> {
                 continue;
             }
             long diff = distanceNew - distanceOld;
-            handleSuccessorAndSelfRecursive(endVertex, vertex -> {
-                vertex.changeDistance(diff);
-            });
+            endVertex.changeDistanceRecursive(diff);
             // P(j) = i
             endVertex.changePrevious(startVertex);
         }
@@ -190,9 +188,9 @@ public class ShortestPathTreeUpdater<K> {
             Long oldWeight = pair.getValue();
             long weight = edge.getWeight();
             long diff = weight - oldWeight;
+            endVertex.changeDistanceRecursive(diff);
             handleSuccessorAndSelfRecursive(endVertex, vertex -> {
                 vertex.markInM();
-                vertex.changeDistance(diff);
                 LOGGER.debug("节点进入M集合:{}", vertex);
                 mSet.add(vertex);
             });
@@ -213,11 +211,10 @@ public class ShortestPathTreeUpdater<K> {
             if (poll.diff != 0) {
                 poll.end.changePrevious(poll.start);
             }
+            if (poll.diff != 0) {
+                poll.end.changeDistanceRecursive(poll.diff);
+            }
             handleSuccessorAndSelfRecursive(poll.end, vertex -> {
-                if (poll.diff != 0) {
-                    vertex.changeDistance(poll.diff);
-                    LOGGER.debug("更新最短路径距离:{}", vertex);
-                }
                 vertex.replaceMinEdgeDiff(null);
             });
             handleOutEdge(queueWrapper, (V) poll.end, edgeFilter);

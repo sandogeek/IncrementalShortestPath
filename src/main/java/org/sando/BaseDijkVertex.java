@@ -135,6 +135,11 @@ public abstract class BaseDijkVertex<K, V extends BaseDijkVertex<K, V>> {
 
     public abstract long changeDistance(long diff);
 
+    /**
+     * 递归地修改当前节点以及后继节点地距离
+     */
+    public abstract void changeDistanceRecursive(long diff);
+
     public abstract long getDistance();
 
     public abstract Vertex<K> getVertex();

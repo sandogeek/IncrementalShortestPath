@@ -109,35 +109,10 @@ public class ShortestPathTree<K> {
             if (heapWrapper == null) {
                 return;
             }
-            List<VertexIndex<K>> cancelList = edgeUpdateOnNotComplete(edge);
+            List<VertexIndex<K>> vertexList = generateRelateVertex(edge);
             treeUpdater.edgeUpdate(edge, oldWeight);
             treeUpdater.tryMergeUpdate();
-            for (VertexIndex<K> vertex : cancelList) {
-                if (vertex.getPrevious().selected) {
-                    if (vertex.selected) {
-                        boolean allInSelected = true;
-                        Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
-                        for (K k : inEdges.keySet()) {
-                            VertexIndex<K> vertexIndex = heapWrapper.getVertexIndex(k);
-                            boolean selected = vertexIndex.selected;
-                            if (!selected) {
-                                allInSelected = false;
-                                break;
-                            }
-                        }
-                        if (allInSelected) {
-                            continue;
-                        }
-                    }
-                    LOGGER.debug("节点{}取消选择，并重新进入堆中", vertex);
-                    vertex.cancelSelect();
-                    heapWrapper.offer(vertex);
-                } else {
-                    LOGGER.debug("节点{}重置距离并取消选择", vertex);
-                    vertex.resetDistance();
-                    vertex.cancelSelect();
-                }
-            }
+            handleRelateVertex(vertexList);
             printTmpPath();
             System.out.println("打印临时路径结束");
         } else {
@@ -145,13 +120,72 @@ public class ShortestPathTree<K> {
         }
     }
 
-    private List<VertexIndex<K>> edgeUpdateOnNotComplete(IEdge<K> edge) {
+    private void handleRelateVertex(List<VertexIndex<K>> vertexList) {
+        for (VertexIndex<K> vertex : vertexList) {
+            Map<K, IEdge<K>> inEdges = vertex.getVertex().inEdges;
+            long minDistance = vertex.getDistance();
+            VertexIndex<K> parent = vertex.getTmpPrevious();
+            boolean allInSelected = true;
+            for (Map.Entry<K, IEdge<K>> entry : inEdges.entrySet()) {
+                K start = entry.getKey();
+                VertexIndex<K> vertexStart = heapWrapper.getVertexIndex(start);
+                boolean selected = vertexStart.selected;
+                if (!selected) {
+                    allInSelected = false;
+                    continue;
+                }
+                long distanceNew;
+                if (vertex.getTmpPrevious() == vertexStart) {
+                    distanceNew = vertex.getDistance();
+                } else {
+                    distanceNew = vertexStart.getDistance() + entry.getValue().getWeight();
+                }
+                if (distanceNew < minDistance) {
+                    parent = vertexStart;
+                    minDistance = distanceNew;
+                }
+            }
+            if (allInSelected) {
+                if (!vertex.selected) {
+                    vertex.selected = true;
+                }
+                if (vertex.getTmpPrevious() != parent) {
+                    vertex.changePrevious(parent);
+                    vertex.updateDistance(minDistance);
+                    debugRelateVertex(vertex, parent);
+                }
+            } else {
+                if (vertex.getTmpPrevious() != parent) {
+                    vertex.changePrevious(parent);
+                    vertex.updateDistance(minDistance);
+                    debugRelateVertex(vertex, parent);
+                }
+                if (!parent.selected) {
+                    vertex.removeFromHeap();
+                    vertex.resetDistance();
+                }
+                if (vertex.selected) {
+                    LOGGER.debug("节点{}取消选择", vertex);
+                    vertex.cancelSelect();
+                    if (parent.selected) {
+                        LOGGER.debug("节点{}重新进入堆中", vertex);
+                        heapWrapper.offer(vertex);
+                    }
+                }
+            }
+        }
+    }
+
+    private static <K> void debugRelateVertex(VertexIndex<K> vertex, VertexIndex<K> parent) {
+        LOGGER.debug("节点{}更新距离,修改父节点：{}", vertex, parent);
+    }
+
+    private List<VertexIndex<K>> generateRelateVertex(IEdge<K> edge) {
         List<VertexIndex<K>> result = new ArrayList<>();
         K end = edge.getEnd();
         VertexIndex<K> viEnd = heapWrapper.getVertexIndex(end);
-        PathTreeHelper.handleSuccessorAndSelfRecursive(viEnd, vertex -> {
-            result.add(vertex);
-        });
+        result.add(viEnd);
+        PathTreeHelper.handleSuccessorRecursive(viEnd, result::add, null, BaseDijkVertex::walkSuccessorWithTmp);
         return result;
     }
 
@@ -381,6 +415,18 @@ public class ShortestPathTree<K> {
                 heap.priorityChange(index, diff > 0 ? 1 : -1);
             }
             return result;
+        }
+
+        @Override
+        public void changeDistanceRecursive(long diff) {
+            if (diff == 0) {
+                return;
+            }
+            changeDistance(diff);
+            LOGGER.debug("更新最短路径距离:{}", this);
+            walkSuccessorWithTmp(v -> {
+                v.changeDistanceRecursive(diff);
+            });
         }
 
         public void updateDistance(long distanceNew) {
