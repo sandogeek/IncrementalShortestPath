@@ -14,6 +14,7 @@ import java.util.Iterator;
 public class FiboHeap<Key> implements Iterable<Key> {
     @SuppressWarnings("unchecked")
     private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
+    private static final double LOG2 = Math.log(2.0);
     /**
      * Comparator.
      */
@@ -26,6 +27,12 @@ public class FiboHeap<Key> implements Iterable<Key> {
      * 堆中节点的数量
      */
     private int size = 0;
+
+    private Entry<Key>[] cons = null;
+    /**
+     * 计算dn时，使用的堆大小
+     */
+    private int dnSize;
 
     public FiboHeap() {
     }
@@ -85,7 +92,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
     /**
      * 取出最小节点
      *
-     * @return 最小节点,如果堆为空，则返回null
+     * @return 最小节点, 如果堆为空，则返回null
      */
     public Key extractMin() {
         if (minimum == null) {
@@ -112,10 +119,74 @@ public class FiboHeap<Key> implements Iterable<Key> {
             minimum = oldMin.right;
             // 将oldMin从根链表中移除
             removeEntry(oldMin);
-//            consolidate();
+            consolidate();
         }
         size--;
         return oldMin.key;
+    }
+
+    /**
+     * 合并斐波那契堆的根链表中左右相同度数的树
+     * 性质：一个数如果是斐波那契数，那么这个数在斐波那契数列上的位置下标不大于其数值关于黄金比例的对数
+     * 堆的节点总数对应斐波那契数，让节点的度对应斐波那契数列上的位置下标
+     */
+    private void consolidate() {
+        ensureConsLength();
+//        for (int i = 0; i < D; i++)
+//            cons[i] = null;
+//
+//        // 合并相同度的根节点，使每个度数的树唯一
+//        while (minimum != null) {
+//            Entry<Key> x = extractMin();            // 取出堆中的最小树(最小节点所在的树)
+//            int d = x.degree;                        // 获取最小树的度数
+//            // cons[d] != null，意味着有两棵树(x和y)的"度数"相同。
+//            while (cons[d] != null) {
+//                Entry<Key> y = cons[d];                // y是"与x的度数相同的树"
+//                if (x.key > y.key) {    // 保证x的键值比y小
+//                    Entry<Key> tmp = x;
+//                    x = y;
+//                    y = tmp;
+//                }
+//
+//                link(y, x);    // 将y链接到x中
+//                cons[d] = null;
+//                d++;
+//            }
+//            cons[d] = x;
+//        }
+//        min = null;
+//
+//        // 将cons中的结点重新加到根表中
+//        for (int i = 0; i < D; i++) {
+//
+//            if (cons[i] != null) {
+//                if (min == null)
+//                    min = cons[i];
+//                else {
+//                    insert(cons[i], min);
+//                    if ((cons[i]).key < min.key)
+//                        min = cons[i];
+//                }
+//            }
+//        }
+    }
+
+    /**
+     * 确保cons数组大小充足
+     */
+    private void ensureConsLength() {
+        if (dnSize >= size) {
+            // 堆没有变大，cons数组大小就是够用的
+            return;
+        }
+        // 计算log2(size)，floor意味着向上取整！
+        // ex. log2(13) = 3，向上取整为4。
+        int maxDegree = (int) Math.floor(Math.log(size) / LOG2);
+        int dn = maxDegree + 2;
+        if (cons == null || dn > cons.length) {
+            cons = new Entry[dn];
+            dnSize = size;
+        }
     }
 
     /*
@@ -268,7 +339,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
         Entry<Key> right; // 右兄弟
         Entry<Key> parent; // 父节点
         Entry<Key> child; // 第一个孩子
-        int degree; // 度
+        int degree; // 度(当前节点的孩子数目)
         boolean marked; // 第一个孩子是否被删除（在删除节点时有用）
 
         public Entry(Key key) {
