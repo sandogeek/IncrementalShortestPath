@@ -1,0 +1,318 @@
+package org.sando;
+
+import java.util.Comparator;
+import java.util.Iterator;
+
+/**
+ * 斐波那契堆
+ *
+ * @param <Key> 堆中元素的类型
+ * @author Sando
+ * @version 1.0
+ * @since 2024/5/22
+ */
+public class FiboHeap<Key> implements Iterable<Key> {
+    @SuppressWarnings("unchecked")
+    private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
+    /**
+     * Comparator.
+     */
+    private Comparator<? super Key> comp = DEFAULT_COMP;
+    /**
+     * 堆中最小的节点
+     */
+    private Entry<Key> minimum = null;
+    /**
+     * 堆中节点的数量
+     */
+    private int size = 0;
+
+    public FiboHeap() {
+    }
+
+    public FiboHeap(Comparator<? super Key> comp) {
+        if (comp != null) {
+            this.comp = comp;
+        }
+    }
+
+    /**
+     * 插入一个key。斐波那契堆的根链表是"双向链表"，这里将{@link #minimum}节点看作双向联表的表头
+     *
+     * @param key 被插入的key
+     */
+    public void insert(Key key) {
+        Entry<Key> entry = new Entry<>(key);
+        entry.parent = null;
+        entry.marked = false;
+        if (minimum == null) {
+            minimum = entry;
+            minimum.right = minimum;
+            minimum.left = minimum;
+        } else {
+            // 这里提前执行比较，因为内部可能报ClassCastException,
+            // 通过fail fast减少执行的逻辑，同时保护链表不被破坏
+            boolean smaller = smaller(entry, minimum);
+            insert(entry, minimum);
+            if (smaller) {
+                minimum = entry;
+            }
+        }
+        size++;
+    }
+
+    /**
+     * 将other合并到当前堆中，注意：此操作会导致other被清空。
+     */
+    public void union(FiboHeap<Key> other) {
+        if (other == null) {
+            return;
+        }
+        Entry<Key> otherMin = other.minimum;
+        if (minimum == null) {
+            minimum = otherMin;
+        } else {
+            if (otherMin != null) {
+                appendList(minimum, other.minimum);
+                size += other.size;
+                minimum = getSmaller(otherMin, minimum);
+            }
+        }
+        // 清理另一个堆
+        other.clear();
+    }
+
+    /**
+     * 取出最小节点
+     *
+     * @return 最小节点,如果堆为空，则返回null
+     */
+    public Key extractMin() {
+        if (minimum == null) {
+            return null;
+        }
+        Entry<Key> oldMin = minimum;
+        // 将minimum每一个儿子(儿子和儿子的兄弟)都添加到"斐波那契堆的根链表"中
+        if (minimum.child != null) {
+            Entry<Key> tmp = minimum.child;
+            // 此处因为已经知道tmp不为null，所以其父节点必定不为null，
+            // 因此选择do while，相比while可以减少一次tmp.parent != null判断
+            do {
+                tmp.parent = null;
+                tmp = tmp.right;
+            } while (tmp.parent != null);
+            appendList(tmp, minimum);
+        }
+
+        // 若oldMin是堆中唯一节点，则设置堆的最小节点为null；
+        // 否则，设置堆的最小节点为次小节点(oldMin.right)，然后再进行调节。
+        if (oldMin.right == oldMin)
+            minimum = null;
+        else {
+            minimum = oldMin.right;
+            // 将oldMin从根链表中移除
+            removeEntry(oldMin);
+//            consolidate();
+        }
+        size--;
+        return oldMin.key;
+    }
+
+    /*
+     * 将entry从所在的双链表移除
+     */
+    private void removeEntry(Entry<Key> entry) {
+        entry.left.right = entry.right;
+        entry.right.left = entry.left;
+    }
+
+    /**
+     * 清空当前堆
+     */
+    public void clear() {
+        minimum = null;
+        size = 0;
+    }
+
+    /**
+     * 向双向循环链表a后追加链表b，从而合并成一个新的双向循环链表
+     * 例子：
+     * <p>
+     * m <--> k <--> a <--> m
+     * n <--> j <--> b <--> n
+     * m = tmp = a.right n = b.right
+     * a.right       = b.right; 对应： a的右边变成n
+     * b.right.left  = a; 对应： n的左边变成a
+     * b.right       = tmp; 对应： b的右边变成m
+     * tmp.left      = b; 对应： m的左边变成b
+     * 结果：m <--> k <--> a <--> n <--> j <-->b <--> m
+     * </p>
+     *
+     * @param a 双向循环链表a
+     * @param b 双向循环链表b
+     */
+    private void appendList(Entry<Key> a, Entry<Key> b) {
+//        if (a == null) return b;
+//        if (b == null) return a;
+        Entry<Key> tmp;
+        tmp = a.right;
+        a.right = b.right;
+        b.right.left = a;
+        b.right = tmp;
+        tmp.left = b;
+    }
+
+    /**
+     * 获取堆中最小的key
+     *
+     * @return 堆中最小的key，如果堆为空，则返回null
+     */
+    public Key minKey() {
+        if (minimum == null) {
+            return null;
+        }
+        return minimum.key;
+    }
+
+    /**
+     * 将entry插入到双向链表中,head节点前
+     * 例如：原本E <-> head , 调整后顺序变为 E <-> entry <-> head
+     *
+     * @param entry 被插入的节点
+     * @param head  头节点
+     */
+    private void insert(Entry<Key> entry, Entry<Key> head) {
+        // E = head.left
+        entry.left = head.left;
+        head.left.right = entry;
+        entry.right = head;
+        head.left = entry;
+    }
+
+    /**
+     * key值变小
+     * 最差摊还复杂度： O(1)
+     *
+     * @param key 变小的key
+     */
+    private void decreaseKey(Key key) {
+
+    }
+
+    /**
+     * key值变大
+     * 最差复杂度： O(log(n))
+     *
+     * @param key 变大的key
+     */
+    private void increaseKey(Key key) {
+
+    }
+
+    /**
+     * entry1是否小于entry2, key为null，意味着处于最小值
+     * TODO 检查所有调用，看看是否把==null判断挪出去
+     *
+     * @param entry1 第一个entry,可以为null
+     * @param entry2 第二个entry,可以为null
+     * @return 如果小于返回true，否则返回false
+     */
+    private boolean smaller(Entry<Key> entry1, Entry<Key> entry2) {
+        if (entry1.key == null) {
+            return true;
+        }
+        if (entry2.key == null) {
+            return false;
+        }
+        return comp.compare(entry1.key, entry2.key) < 0;
+    }
+
+    /**
+     * 获取entry1和entry2中较小的一个
+     *
+     * @param entry1 第一个entry,可以为null
+     * @param entry2 第二个entry,可以为null
+     * @return 较小的一个
+     */
+    private Entry<Key> getSmaller(Entry<Key> entry1, Entry<Key> entry2) {
+        if (smaller(entry1, entry2)) {
+            return entry1;
+        }
+        return entry2;
+    }
+
+    /**
+     * 堆是否为空
+     *
+     * @return 如果为空返回true，否则返回false
+     */
+    public boolean isEmpty() {
+        return size == 0;
+    }
+
+    public int getSize() {
+        return size;
+    }
+
+    @Override
+    public Iterator<Key> iterator() {
+        return null;
+    }
+
+    /**
+     * 斐波那契堆节点
+     */
+    private static class Entry<Key> {
+        Key key; // 键
+        Entry<Key> left; // 左兄弟
+        Entry<Key> right; // 右兄弟
+        Entry<Key> parent; // 父节点
+        Entry<Key> child; // 第一个孩子
+        int degree; // 度
+        boolean marked; // 第一个孩子是否被删除（在删除节点时有用）
+
+        public Entry(Key key) {
+            this.key = key;
+        }
+    }
+
+    /**
+     * 斐波那契堆Key出/入堆感知接口
+     */
+    @SuppressWarnings("unchecked")
+    interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
+        /**
+         * 当Key出/入堆时调用
+         *
+         * @param heap 入堆时非null，出堆时为null
+         */
+        void aware(FiboHeap<Key> heap);
+
+        /**
+         * 获取对应的堆
+         */
+        FiboHeap<Key> getHeap();
+
+        /**
+         * key变大
+         */
+        default void increaseKey() {
+            FiboHeap<Key> heap = getHeap();
+            if (heap == null) {
+                return;
+            }
+            heap.increaseKey((Key) this);
+        }
+
+        /**
+         * key变小
+         */
+        default void decreaseKey() {
+            FiboHeap<Key> heap = getHeap();
+            if (heap == null) {
+                return;
+            }
+            getHeap().decreaseKey((Key) this);
+        }
+    }
+}
