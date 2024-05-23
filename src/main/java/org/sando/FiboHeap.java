@@ -11,10 +11,9 @@ import java.util.Iterator;
  * @version 1.0
  * @since 2024/5/22
  */
-@SuppressWarnings(value = {"unchecked","rawtypes"})
+@SuppressWarnings(value = {"unchecked", "rawtypes"})
 public class FiboHeap<Key> implements Iterable<Key> {
     private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
-    private static final double LOG2 = Math.log(2.0);
     /**
      * Comparator.
      */
@@ -41,7 +40,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
     }
 
     public FiboHeap(int initialCapacity) {
-        int needLen = (int) Math.floor(Math.log(initialCapacity) / LOG2) + 2;
+        int needLen = log2Floor(initialCapacity) + 2;
         dnSize = 1 << needLen;
         cons = new Entry[needLen];
     }
@@ -213,12 +212,21 @@ public class FiboHeap<Key> implements Iterable<Key> {
         // 根据斐波那契性质，计算出最大的度 = (int) Math.floor(Math.log(size) / LOG2) + 1
         // 度从0开始，所以数组容量要加1
         // 这里实际+2就足够了，选择+3是为了减少new Entry[]的次数（dnSize每次扩大1<<3倍）
-        int needLen = (int) Math.floor(Math.log(size) / LOG2) + 3;
+        int needLen = log2Floor(size) + 3;
         if (needLen > cons.length) {
             cons = new Entry[needLen];
             // 计算下一个使得cons数组容量上升的size
             dnSize = 1 << needLen;
         }
+    }
+
+    /**
+     * 计算n以2为底数的对数值执行floor后的结果
+     * @return n以2为底数的对数值执行floor后的结果
+     */
+    private static int log2Floor(int n) {
+        // Integer.SIZE - 1 == 31
+        return 31 - Integer.numberOfLeadingZeros(n);
     }
 
     /*
