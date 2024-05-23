@@ -1,7 +1,6 @@
 package org.sando;
 
-import java.util.Comparator;
-import java.util.Iterator;
+import java.util.*;
 
 /**
  * 斐波那契堆
@@ -12,7 +11,7 @@ import java.util.Iterator;
  * @since 2024/5/22
  */
 @SuppressWarnings(value = {"unchecked", "rawtypes"})
-public class FiboHeap<Key> implements Iterable<Key> {
+public class FiboHeap<Key> extends AbstractQueue<Key> {
     private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
     /**
      * Comparator.
@@ -52,6 +51,26 @@ public class FiboHeap<Key> implements Iterable<Key> {
         }
     }
 
+    @Override
+    public boolean offer(Key key) {
+        insert(key);
+        return true;
+    }
+
+    @Override
+    public Key poll() {
+        return extractMin();
+    }
+    @Override
+    public Key peek() {
+        return minKey();
+    }
+
+    @Override
+    public int size() {
+        return size;
+    }
+
     /**
      * 插入一个key。斐波那契堆的根链表是"双向链表"，这里将{@link #minimum}节点看作双向联表的表头
      *
@@ -75,6 +94,9 @@ public class FiboHeap<Key> implements Iterable<Key> {
             }
         }
         size++;
+        if (key instanceof IFiboHeapAware) {
+            ((IFiboHeapAware) key).aware(this, entry);
+        }
     }
 
     /**
@@ -94,6 +116,11 @@ public class FiboHeap<Key> implements Iterable<Key> {
                 minimum = getSmaller(otherMin, minimum);
             }
         }
+        other.forEach(key -> {
+            if (key instanceof IFiboHeapAware) {
+                ((IFiboHeapAware) key).union(this);
+            }
+        });
         // 清理另一个堆
         other.clear();
     }
@@ -131,6 +158,9 @@ public class FiboHeap<Key> implements Iterable<Key> {
             consolidate();
         }
         size--;
+        if (oldMin.key instanceof IFiboHeapAware) {
+            ((IFiboHeapAware) oldMin.key).aware(null, null);
+        }
         return oldMin.key;
     }
 
@@ -222,6 +252,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
 
     /**
      * 计算n以2为底数的对数值执行floor后的结果
+     *
      * @return n以2为底数的对数值执行floor后的结果
      */
     private static int log2Floor(int n) {
@@ -304,19 +335,66 @@ public class FiboHeap<Key> implements Iterable<Key> {
      * key值变小
      * 最差摊还复杂度： O(1)
      *
-     * @param key 变小的key
+     * @param entry 变小的entry
      */
-    private void decreaseKey(Key key) {
+    private void decreaseKey(Entry<Key> entry) {
+        Entry<Key> parent = entry.parent;
+        if (parent != null && smaller(entry, parent)) {
+            cut(entry, parent);
+            cascadingCut(parent);
+        }
 
+        if (smaller(entry, minimum)) {
+            minimum = entry;
+        }
+    }
+
+    /*
+     * 对节点node进行"级联剪切"
+     *
+     * 级联剪切：如果减小后的结点破坏了最小堆性质，
+     *     则把它切下来(即从所在双向链表中删除，并将
+     *     其插入到由最小树根节点形成的双向链表中)，
+     *     然后再从"被切节点的父节点"到所在树根节点递归执行级联剪枝
+     */
+    private void cascadingCut(Entry<Key> entry) {
+        Entry<Key> parent = entry.parent;
+
+        if (parent != null) {
+            if (!entry.marked)
+                entry.marked = true;
+            else {
+                cut(entry, parent);
+                cascadingCut(parent);
+            }
+        }
+    }
+
+    /*
+     * 将x从当前所在的链表中剥离出来，
+     * 并使x成为"堆的根链表"中的一员。
+     */
+    private void cut(Entry<Key> x, Entry<Key> parent) {
+        if (x.right == x) {
+            parent.child = null;
+        } else {
+            parent.child = x.right;
+        }
+        removeEntry(x);
+        parent.degree --;
+        // Add x to the root list.
+        insert(x, minimum);
+        x.parent = null;
+        x.marked = false;
     }
 
     /**
      * key值变大
      * 最差复杂度： O(log(n))
      *
-     * @param key 变大的key
+     * @param entry 变大的entry
      */
-    private void increaseKey(Key key) {
+    private void increaseKey(Entry<Key> entry) {
 
     }
 
@@ -361,10 +439,6 @@ public class FiboHeap<Key> implements Iterable<Key> {
         return size == 0;
     }
 
-    public int getSize() {
-        return size;
-    }
-
     @Override
     public Iterator<Key> iterator() {
         return null;
@@ -373,7 +447,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
     /**
      * 斐波那契堆节点
      */
-    private static class Entry<Key> {
+    public static class Entry<Key> {
         Key key; // 键
         Entry<Key> left; // 左兄弟
         Entry<Key> right; // 右兄弟
@@ -393,16 +467,27 @@ public class FiboHeap<Key> implements Iterable<Key> {
     @SuppressWarnings("unchecked")
     interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
         /**
-         * 当Key出/入堆时调用
+         * 当Key出/入堆时调用,用于知道自己入堆和出堆
          *
          * @param heap 入堆时非null，出堆时为null
          */
-        void aware(FiboHeap<Key> heap);
+        void aware(FiboHeap<Key> heap, Entry<Key> entry);
+
+        /**
+         * 被union到一个新的堆
+         * @param heap 新堆
+         */
+        void union(FiboHeap<Key> heap);
 
         /**
          * 获取对应的堆
          */
         FiboHeap<Key> getHeap();
+
+        /**
+         * 获取key对应的entry
+         */
+        Entry<Key> getEntry();
 
         /**
          * key变大
@@ -412,7 +497,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
             if (heap == null) {
                 return;
             }
-            heap.increaseKey((Key) this);
+            heap.increaseKey(getEntry());
         }
 
         /**
@@ -423,7 +508,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
             if (heap == null) {
                 return;
             }
-            getHeap().decreaseKey((Key) this);
+            getHeap().decreaseKey(getEntry());
         }
     }
 }
