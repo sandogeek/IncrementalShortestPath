@@ -27,17 +27,25 @@ public class FiboHeap<Key> implements Iterable<Key> {
      * 堆中节点的数量
      */
     private int size = 0;
-
+    /**
+     * cons数组，调整堆的辅助数组
+     */
     private Entry<Key>[] cons = null;
     /**
-     * 计算dn时，使用的堆大小
+     * 下使得cons数组容量上升的size临界值
      */
     private int dnSize;
 
     public FiboHeap() {
+        this(2 << 8);
     }
 
-    public FiboHeap(Comparator<? super Key> comp) {
+    public FiboHeap(int initialCapacity) {
+        ensureConsLength(initialCapacity);
+    }
+
+    public FiboHeap(int initialCapacity, Comparator<? super Key> comp) {
+        this(initialCapacity);
         if (comp != null) {
             this.comp = comp;
         }
@@ -131,7 +139,7 @@ public class FiboHeap<Key> implements Iterable<Key> {
      * 堆的节点总数对应斐波那契数，让节点的度对应斐波那契数列上的位置下标
      */
     private void consolidate() {
-        ensureConsLength();
+        ensureConsLength(size);
 //        for (int i = 0; i < D; i++)
 //            cons[i] = null;
 //
@@ -174,18 +182,20 @@ public class FiboHeap<Key> implements Iterable<Key> {
     /**
      * 确保cons数组大小充足
      */
-    private void ensureConsLength() {
-        if (dnSize >= size) {
-            // 堆没有变大，cons数组大小就是够用的
+    private void ensureConsLength(int size) {
+        if (size < dnSize) {
+            // 堆大小没有达到临界值，cons数组大小就是够用的
             return;
         }
-        // 计算log2(size)，floor意味着向上取整！
+        // 根据斐波那契性质，计算出最大的度
         // ex. log2(13) = 3，向上取整为4。
-        int maxDegree = (int) Math.floor(Math.log(size) / LOG2);
-        int dn = maxDegree + 2;
-        if (cons == null || dn > cons.length) {
-            cons = new Entry[dn];
-            dnSize = size;
+        int floor = (int) Math.floor(Math.log(size) / LOG2);
+        int needLen = floor + 2;
+        if (cons == null || needLen > cons.length) {
+            // 最大的度为floor+1,度从0开始，所以数组容量要加1
+            cons = new Entry[needLen];
+            // 计算下一个使得cons数组容量上升的size
+            dnSize = 2 << (floor + 1);
         }
     }
 
