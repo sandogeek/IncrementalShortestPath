@@ -11,8 +11,8 @@ import java.util.Iterator;
  * @version 1.0
  * @since 2024/5/22
  */
+@SuppressWarnings(value = {"unchecked","rawtypes"})
 public class FiboHeap<Key> implements Iterable<Key> {
-    @SuppressWarnings("unchecked")
     private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
     private static final double LOG2 = Math.log(2.0);
     /**
@@ -30,18 +30,20 @@ public class FiboHeap<Key> implements Iterable<Key> {
     /**
      * cons数组，调整堆的辅助数组
      */
-    private Entry<Key>[] cons = null;
+    private Entry[] cons;
     /**
      * 下使得cons数组容量上升的size临界值
      */
     private int dnSize;
 
     public FiboHeap() {
-        this(2 << 8);
+        this(1 << 10);
     }
 
     public FiboHeap(int initialCapacity) {
-        ensureConsLength(initialCapacity);
+        int needLen = (int) Math.floor(Math.log(initialCapacity) / LOG2) + 2;
+        dnSize = 1 << needLen;
+        cons = new Entry[needLen];
     }
 
     public FiboHeap(int initialCapacity, Comparator<? super Key> comp) {
@@ -121,9 +123,9 @@ public class FiboHeap<Key> implements Iterable<Key> {
 
         // 若oldMin是堆中唯一节点，则设置堆的最小节点为null；
         // 否则，设置堆的最小节点为次小节点(oldMin.right)，然后再进行调节。
-        if (oldMin.right == oldMin)
+        if (oldMin.right == oldMin) {
             minimum = null;
-        else {
+        } else {
             minimum = oldMin.right;
             // 将oldMin从根链表中移除
             removeEntry(oldMin);
@@ -139,63 +141,83 @@ public class FiboHeap<Key> implements Iterable<Key> {
      * 堆的节点总数对应斐波那契数，让节点的度对应斐波那契数列上的位置下标
      */
     private void consolidate() {
-        ensureConsLength(size);
-//        for (int i = 0; i < D; i++)
-//            cons[i] = null;
-//
-//        // 合并相同度的根节点，使每个度数的树唯一
-//        while (minimum != null) {
-//            Entry<Key> x = extractMin();            // 取出堆中的最小树(最小节点所在的树)
-//            int d = x.degree;                        // 获取最小树的度数
-//            // cons[d] != null，意味着有两棵树(x和y)的"度数"相同。
-//            while (cons[d] != null) {
-//                Entry<Key> y = cons[d];                // y是"与x的度数相同的树"
-//                if (x.key > y.key) {    // 保证x的键值比y小
-//                    Entry<Key> tmp = x;
-//                    x = y;
-//                    y = tmp;
-//                }
-//
-//                link(y, x);    // 将y链接到x中
-//                cons[d] = null;
-//                d++;
-//            }
-//            cons[d] = x;
-//        }
-//        min = null;
-//
-//        // 将cons中的结点重新加到根表中
-//        for (int i = 0; i < D; i++) {
-//
-//            if (cons[i] != null) {
-//                if (min == null)
-//                    min = cons[i];
-//                else {
-//                    insert(cons[i], min);
-//                    if ((cons[i]).key < min.key)
-//                        min = cons[i];
-//                }
-//            }
-//        }
+        ensureConsLength();
+        // cur当前节点，当cur等于iter时，循环终止
+        Entry<Key> iter = minimum, cur = minimum;
+        Entry<Key> smaller;
+        Entry<Key> bigger;
+        Entry<Key> temp;
+        int d;
+        do {
+            smaller = cur;
+            d = smaller.degree;
+            if (cons[d] != smaller) {
+                while (cons[d] != null) {
+                    bigger = cons[d];
+                    if (smaller(bigger, smaller)) {
+                        temp = smaller;
+                        smaller = bigger;
+                        bigger = temp;
+                    }
+                    // 让bigger成为smaller的孩子
+                    link(bigger, smaller);
+                    iter = smaller;
+                    cur = smaller;
+                    cons[d] = null;
+                    d += 1;
+                }
+                cons[d] = smaller;
+            }
+            cur = cur.right;
+        } while (cur != iter);
+        minimum = iter;
+
+        // 寻找最小元素
+        do {
+            // 最开始cur必定等于iter等于minimum，
+            // 此处先cur = cur.right能减少一次不必要的大小比较,当只有一个根节点时，执行比较次数为0次
+            cons[cur.degree] = null;
+            cur = cur.right;
+            if (cur == iter) {
+                break;
+            }
+            minimum = getSmaller(cur, minimum);
+        } while (true);
+    }
+
+    /*
+     * 把child从所在链表移除,并把child变成parent的孩子节点
+     */
+    private void link(final Entry<Key> child, final Entry<Key> parent) {
+        removeEntry(child);
+        if (parent.child == null) {
+            child.right = child;
+            child.left = child;
+            parent.child = child;
+        } else {
+            insert(child, parent.child);
+        }
+        child.parent = parent;
+        parent.degree += 1;
+        child.marked = false;
     }
 
     /**
      * 确保cons数组大小充足
      */
-    private void ensureConsLength(int size) {
+    private void ensureConsLength() {
         if (size < dnSize) {
             // 堆大小没有达到临界值，cons数组大小就是够用的
             return;
         }
-        // 根据斐波那契性质，计算出最大的度
-        // ex. log2(13) = 3，向上取整为4。
-        int floor = (int) Math.floor(Math.log(size) / LOG2);
-        int needLen = floor + 2;
-        if (cons == null || needLen > cons.length) {
-            // 最大的度为floor+1,度从0开始，所以数组容量要加1
+        // 根据斐波那契性质，计算出最大的度 = (int) Math.floor(Math.log(size) / LOG2) + 1
+        // 度从0开始，所以数组容量要加1
+        // 这里实际+2就足够了，选择+3是为了减少new Entry[]的次数（dnSize每次扩大1<<3倍）
+        int needLen = (int) Math.floor(Math.log(size) / LOG2) + 3;
+        if (needLen > cons.length) {
             cons = new Entry[needLen];
             // 计算下一个使得cons数组容量上升的size
-            dnSize = 2 << (floor + 1);
+            dnSize = 1 << needLen;
         }
     }
 
