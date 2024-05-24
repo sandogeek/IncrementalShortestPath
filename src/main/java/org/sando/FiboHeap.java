@@ -399,6 +399,26 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     }
 
     /**
+     * 移除指定节点，为了效率，不检查节点是否属于当前堆
+     * @param entry 被移除的节点
+     */
+    public void delete(Entry<Key> entry) {
+        // key为null则会是最小值
+        Key key = entry.key;
+        entry.key = null;
+        Entry<Key> parent = entry.parent;
+        if (parent != null) {
+            cut(entry, parent);
+            cascadingCut(parent);
+        }
+        minimum = entry;
+        extractMin();
+        if (key instanceof IFiboHeapAware) {
+            ((IFiboHeapAware) key).aware(null, null);
+        }
+    }
+
+    /**
      * entry1是否小于entry2, key为null，意味着处于最小值
      * TODO 检查所有调用，看看是否把==null判断挪出去
      *
@@ -407,12 +427,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * @return 如果小于返回true，否则返回false
      */
     private boolean smaller(Entry<Key> entry1, Entry<Key> entry2) {
-        if (entry1.key == null) {
-            return true;
-        }
-        if (entry2.key == null) {
-            return false;
-        }
         return comp.compare(entry1.key, entry2.key) < 0;
     }
 
@@ -471,24 +485,32 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
          *
          * @param heap 入堆时非null，出堆时为null
          */
-        void aware(FiboHeap<Key> heap, Entry<Key> entry);
+        default void aware(FiboHeap<Key> heap, Entry<Key> entry) {
+            setHeap(heap);
+            setEntry(entry);
+        }
 
         /**
          * 被union到一个新的堆
          * @param heap 新堆
          */
-        void union(FiboHeap<Key> heap);
+        default void union(FiboHeap<Key> heap) {
+            setHeap(heap);
+        }
 
         /**
          * 获取对应的堆
          */
         FiboHeap<Key> getHeap();
 
+        void setHeap(FiboHeap<Key> heap);
+
         /**
          * 获取key对应的entry
          */
         Entry<Key> getEntry();
 
+        void setEntry(Entry<Key> entry);
         /**
          * key变大
          */

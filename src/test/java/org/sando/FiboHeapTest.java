@@ -109,6 +109,32 @@ class FiboHeapTest {
         }
     }
 
+    @Test
+    void delete() {
+        FiboHeap<IntKey> fiboHeap = new FiboHeap<>();
+        PriorityQueue<IntKey> queue = new PriorityQueue<>();
+        int size = 30_0000;
+        for (int i = 0; i < size; i++) {
+            int random = rnd.nextInt(size);
+            IntKey key = new IntKey(random);
+//            System.out.println(key);
+            fiboHeap.insert(key);
+            if (rnd.nextInt(5) < 3) {
+                fiboHeap.delete(key.getEntry());
+            } else {
+                queue.offer(key);
+            }
+            if (rnd.nextInt(10) < 1) {
+                pollAndCheck(fiboHeap, queue);
+            }
+        }
+
+        int left = fiboHeap.size();
+        for (int i = 0; i < left; i++) {
+            pollAndCheck(fiboHeap, queue);
+        }
+    }
+
     static class IntKey implements FiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey> {
         private FiboHeap<IntKey> heap;
         private FiboHeap.Entry<IntKey> entry;
@@ -136,17 +162,6 @@ class FiboHeapTest {
         }
 
         @Override
-        public void aware(FiboHeap<IntKey> heap, FiboHeap.Entry<IntKey> entry) {
-            this.heap = heap;
-            this.entry = entry;
-        }
-
-        @Override
-        public void union(FiboHeap<IntKey> heap) {
-            this.heap = heap;
-        }
-
-        @Override
         public FiboHeap<IntKey> getHeap() {
             return heap;
         }
@@ -154,6 +169,16 @@ class FiboHeapTest {
         @Override
         public FiboHeap.Entry<IntKey> getEntry() {
             return entry;
+        }
+
+        @Override
+        public void setHeap(FiboHeap<IntKey> heap) {
+            this.heap = heap;
+        }
+
+        @Override
+        public void setEntry(FiboHeap.Entry<IntKey> entry) {
+            this.entry = entry;
         }
 
         @Override
