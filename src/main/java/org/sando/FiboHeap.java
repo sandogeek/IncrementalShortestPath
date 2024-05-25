@@ -368,15 +368,17 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *     然后再从"被切节点的父节点"到所在树根节点递归执行级联剪枝
      */
     private void cascadingCut(Entry<Key> entry) {
-        Entry<Key> parent = entry.parent;
-
-        if (parent != null) {
-            if (!entry.marked)
-                entry.marked = true;
-            else {
-                cut(entry, parent, true);
-                cascadingCut(parent);
+        for (; ; ) {
+            Entry<Key> parent = entry.parent;
+            if (parent == null) {
+                break;
             }
+            if (!entry.marked) {
+                entry.marked = true;
+                break;
+            }
+            cut(entry, parent, true);
+            entry = parent;
         }
     }
 
