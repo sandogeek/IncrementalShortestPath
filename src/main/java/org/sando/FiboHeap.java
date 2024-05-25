@@ -61,6 +61,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     public Key poll() {
         return extractMin();
     }
+
     @Override
     public Key peek() {
         return minKey();
@@ -135,17 +136,9 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             return null;
         }
         Entry<Key> oldMin = minimum;
-        // 将minimum每一个儿子(儿子和儿子的兄弟)都添加到"斐波那契堆的根链表"中
-        if (minimum.child != null) {
-            Entry<Key> tmp = minimum.child;
-            // 此处因为已经知道tmp不为null，所以其父节点必定不为null，
-            // 因此选择do while，相比while可以减少一次tmp.parent != null判断
-            do {
-                tmp.parent = null;
-                tmp = tmp.right;
-            } while (tmp.parent != null);
-            appendList(tmp, minimum);
-        }
+        Key key = oldMin.key;
+        oldMin.key = null;
+        allChild2RootList(oldMin);
 
         // 若oldMin是堆中唯一节点，则设置堆的最小节点为null；
         // 否则，设置堆的最小节点为次小节点(oldMin.right)，然后再进行调节。
@@ -158,10 +151,27 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             consolidate();
         }
         size--;
-        if (oldMin.key instanceof IFiboHeapAware) {
-            ((IFiboHeapAware) oldMin.key).aware(null, null);
+        if (key instanceof IFiboHeapAware) {
+            ((IFiboHeapAware) key).aware(null, null);
         }
-        return oldMin.key;
+        return key;
+    }
+
+    /**
+     * 将entry每一个儿子(儿子和儿子的兄弟)都添加到"斐波那契堆的根链表"中
+     */
+    private void allChild2RootList(Entry<Key> entry) {
+        if (entry.child == null) {
+            return;
+        }
+        Entry<Key> tmp = entry.child;
+        // 此处因为已经知道tmp不为null，所以其父节点必定不为null，
+        // 因此选择do while，相比while可以减少一次tmp.parent != null判断
+        do {
+            tmp.parent = null;
+            tmp = tmp.right;
+        } while (tmp.parent != null);
+        appendList(tmp, minimum);
     }
 
     /**
@@ -340,7 +350,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     private void decreaseKey(Entry<Key> entry) {
         Entry<Key> parent = entry.parent;
         if (parent != null && smaller(entry, parent)) {
-            cut(entry, parent);
+            cut(entry, parent, true);
             cascadingCut(parent);
         }
 
@@ -364,26 +374,30 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             if (!entry.marked)
                 entry.marked = true;
             else {
-                cut(entry, parent);
+                cut(entry, parent, true);
                 cascadingCut(parent);
             }
         }
     }
 
-    /*
+    /**
      * 将x从当前所在的链表中剥离出来，
-     * 并使x成为"堆的根链表"中的一员。
+     *
+     * @param x 需要被剥离的节点
+     * @param insert 是否使x成为"堆的根链表"中的一员
      */
-    private void cut(Entry<Key> x, Entry<Key> parent) {
+    private void cut(Entry<Key> x, Entry<Key> parent, boolean insert) {
         if (x.right == x) {
             parent.child = null;
         } else {
             parent.child = x.right;
         }
         removeEntry(x);
-        parent.degree --;
+        parent.degree--;
         // Add x to the root list.
-        insert(x, minimum);
+        if (insert) {
+            insert(x, minimum);
+        }
         x.parent = null;
         x.marked = false;
     }
@@ -400,19 +414,28 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
 
     /**
      * 移除指定节点，为了效率，不检查节点是否属于当前堆
+     *
      * @param entry 被移除的节点
      */
     public void delete(Entry<Key> entry) {
-        // key为null则会是最小值
+        if (entry == minimum) {
+            extractMin();
+            return;
+        }
+        // key为null则意味着entry是最小值
         Key key = entry.key;
         entry.key = null;
+        // 以下相当于decrease(entry)，但为了避免调用smaller，所以采用了复制代码的方式
         Entry<Key> parent = entry.parent;
         if (parent != null) {
-            cut(entry, parent);
+            cut(entry, parent, false);
             cascadingCut(parent);
+        } else {
+            removeEntry(entry);
         }
-        minimum = entry;
-        extractMin();
+        allChild2RootList(entry);
+        consolidate();
+        size--;
         if (key instanceof IFiboHeapAware) {
             ((IFiboHeapAware) key).aware(null, null);
         }
@@ -492,6 +515,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
 
         /**
          * 被union到一个新的堆
+         *
          * @param heap 新堆
          */
         default void union(FiboHeap<Key> heap) {
@@ -511,6 +535,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         Entry<Key> getEntry();
 
         void setEntry(Entry<Key> entry);
+
         /**
          * key变大
          */

@@ -3,6 +3,8 @@ package org.sando;
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
+import java.util.ArrayList;
+import java.util.List;
 import java.util.PriorityQueue;
 import java.util.Random;
 
@@ -113,21 +115,20 @@ class FiboHeapTest {
     void delete() {
         FiboHeap<IntKey> fiboHeap = new FiboHeap<>();
         PriorityQueue<IntKey> queue = new PriorityQueue<>();
-        int size = 30_0000;
+        int size = 100_0000;
+        List<FiboHeap.Entry<IntKey>> entries = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
 //            System.out.println(key);
             fiboHeap.insert(key);
             if (rnd.nextInt(5) < 3) {
-                fiboHeap.delete(key.getEntry());
+                entries.add(key.getEntry());
             } else {
                 queue.offer(key);
             }
-            if (rnd.nextInt(10) < 1) {
-                pollAndCheck(fiboHeap, queue);
-            }
         }
+        entries.forEach(fiboHeap::delete);
 
         int left = fiboHeap.size();
         for (int i = 0; i < left; i++) {
