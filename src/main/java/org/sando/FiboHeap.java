@@ -179,6 +179,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             tmp = tmp.right;
         } while (tmp.parent != null);
         appendList(tmp, minimum);
+        entry.degree = 0;
     }
 
     /**
@@ -369,7 +370,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     }
 
     /*
-     * 对节点node进行"级联剪切"
+     * 对节点entry进行"级联剪切"
      *
      * 级联剪切：如果减小后的结点破坏了最小堆性质，
      *     则把它切下来(即从所在双向链表中删除，并将
@@ -420,7 +421,27 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * @param entry 变大的entry
      */
     private void increaseKey(Entry<Key> entry) {
+        // 将node每一个儿子(不包括孙子,重孙,...)都添加到"斐波那契堆的根链表"中
+        allChild2RootList(entry);
 
+        // 如果entry不在根链表中，
+        //     则将entry从父节点parent的子链接中剥离出来，
+        //     并使entry成为"堆的根链表"中的一员，
+        //     然后进行"级联剪切"
+        // 否则，则判断是否需要更新堆的最小节点
+        Entry<Key> parent = entry.parent;
+        if (parent != null) {
+            cut(entry, parent, true);
+            cascadingCut(parent);
+        } else if (minimum == entry) {
+            Entry<Key> right = entry.right;
+            while (right != entry) {
+                if (smaller(right, minimum)) {
+                    minimum = right;
+                }
+                right = right.right;
+            }
+        }
     }
 
     /**
@@ -435,7 +456,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
         // key为null则意味着entry是最小值
         Key key = entry.key;
-        entry.key = null;
         // 以下相当于decrease(entry)，但为了避免调用smaller，所以采用了复制代码的方式
         Entry<Key> parent = entry.parent;
         if (parent != null) {

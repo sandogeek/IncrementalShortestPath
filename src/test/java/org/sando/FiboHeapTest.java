@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import java.util.*;
+import java.util.function.Function;
 
 /**
  * @author Sando
@@ -89,9 +90,17 @@ class FiboHeapTest {
 
     @Test
     public void decreaseKey() {
+        changeKey(30_0000, size -> -rnd.nextInt(size));
+    }
+
+    @Test
+    public void increaseKey() {
+        changeKey(100, size -> rnd.nextInt(size/4));
+    }
+
+    private static void changeKey(int size ,Function<Integer, Integer> function) {
         FiboHeap<IntKey> fiboHeap = new FiboHeap<>();
         Heap<IntKey> queue = new Heap<>();
-        int size = 30_0000;
         List<Runnable> decreaseKeyList = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
@@ -104,10 +113,11 @@ class FiboHeapTest {
                     if (key.getHeap() == null) {
                         return;
                     }
-//                    String old = key.toString();
-                    key.delta(-rnd.nextInt(size));
-                    queue.priorityChange(key.getIndex(), -1);
-//                    System.out.println("decreaseKey " + old + " -> " + key);
+                    String old = key.toString();
+                    Integer diff = function.apply(size);
+                    key.delta(diff);
+                    queue.priorityChange(key.getIndex(), diff);
+                    System.out.println("change " + old + " -> " + key);
                 });
             }
         }
