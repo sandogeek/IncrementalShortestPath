@@ -33,6 +33,10 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * 下使得cons数组容量上升的size临界值
      */
     private int dnSize;
+    /**
+     * The mod count.
+     */
+    private transient int mod_count;
 
     public FiboHeap() {
         this(1 << 10);
@@ -95,6 +99,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             }
         }
         size++;
+        mod_count++;
         if (key instanceof IFiboHeapAware) {
             ((IFiboHeapAware) key).aware(this, entry);
         }
@@ -122,6 +127,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
                 ((IFiboHeapAware) key).union(this);
             }
         });
+        mod_count++;
         // 清理另一个堆
         other.clear();
     }
@@ -151,6 +157,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             consolidate();
         }
         size--;
+        mod_count++;
         if (key instanceof IFiboHeapAware) {
             ((IFiboHeapAware) key).aware(null, null);
         }
@@ -284,6 +291,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     public void clear() {
         minimum = null;
         size = 0;
+        mod_count++;
     }
 
     /**
@@ -357,6 +365,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         if (smaller(entry, minimum)) {
             minimum = entry;
         }
+        mod_count++;
     }
 
     /*
@@ -385,7 +394,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 将x从当前所在的链表中剥离出来，
      *
-     * @param x 需要被剥离的节点
+     * @param x      需要被剥离的节点
      * @param insert 是否使x成为"堆的根链表"中的一员
      */
     private void cut(Entry<Key> x, Entry<Key> parent, boolean insert) {
@@ -438,6 +447,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         allChild2RootList(entry);
         consolidate();
         size--;
+        mod_count++;
         if (key instanceof IFiboHeapAware) {
             ((IFiboHeapAware) key).aware(null, null);
         }
@@ -480,7 +490,93 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
 
     @Override
     public Iterator<Key> iterator() {
-        return null;
+        return new EntryIterator();
+    }
+
+    private class EntryIterator
+            implements Iterator<Key> {
+
+        /**
+         * The next entry.
+         */
+        private Entry<Key> next;
+
+        /**
+         * The mod count.
+         */
+        private final int my_mod_count;
+
+        /**
+         * Constructor.
+         */
+        EntryIterator() {
+            super();
+
+            // Start at min.
+            next = FiboHeap.this.minimum;
+
+            // Copy mod count.
+            my_mod_count = FiboHeap.this.mod_count;
+        }
+
+        /**
+         * @see Iterator#hasNext()
+         */
+        @Override
+        public boolean hasNext() {
+            if (my_mod_count != FiboHeap.this.mod_count) {
+                throw new ConcurrentModificationException();
+            }
+
+            return (next != null);
+        }
+
+        /**
+         * @see Iterator#next()
+         */
+        @Override
+        public Key next()
+                throws NoSuchElementException, ConcurrentModificationException {
+            if (!hasNext()) {
+                throw new NoSuchElementException();
+            }
+
+            Entry<Key> n = next;
+            next = getSuccessor(next);
+            return n.key;
+        }
+
+        /**
+         * Return the successor entry to the specified entry.
+         *
+         * @param entry the given entry.
+         * @return the successor entry.
+         */
+        private Entry<Key> getSuccessor(Entry<Key> entry) {
+            if (entry.child != null) {
+                return entry.child;
+            }
+            Entry<Key> first;
+            do {
+                first = (entry.parent == null) ? FiboHeap.this.minimum : entry.parent.child;
+                if (entry.right != first) {
+                    return entry.right;
+                }
+                entry = entry.parent;
+            }
+            while (entry != null);
+            return null;
+        }
+
+        /**
+         * @see Iterator#remove()
+         */
+        @Override
+        public void remove()
+                throws UnsupportedOperationException {
+            throw new UnsupportedOperationException();
+        }
+
     }
 
     /**
