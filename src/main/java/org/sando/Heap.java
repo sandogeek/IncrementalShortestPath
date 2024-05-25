@@ -89,7 +89,7 @@ import java.util.function.Consumer;
  * @version 1.0
  * @since 2024/5/2
  */
-public class Heap<E> extends AbstractCollection<E> {
+public class Heap<E> extends AbstractQueue<E> {
     private static final int DEFAULT_INITIAL_CAPACITY = 11;
     /**
      * 不在堆中
