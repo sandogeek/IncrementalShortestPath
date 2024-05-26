@@ -292,8 +292,8 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * 向双向循环链表a后追加链表b，从而合并成一个新的双向循环链表
      * 例子：
      * <p>
-     *  a <--> m <--> k
-     *  b <--> n <--> j
+     * a <--> m <--> k
+     * b <--> n <--> j
      * 结果： a <--> b <--> n <--> j <--> m <--> k
      * </p>
      *
@@ -322,6 +322,15 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 将entry插入到双向链表中,head节点前
      * 例如：原本E <-> head , 调整后顺序变为 E <-> entry <-> head
+     * <p>
+     * 这个实际等价于：
+     * <pre>
+     *    if (entry.right == null) {
+     *         entry.right = entry;
+     *     }
+     *     appendList(entry, head);
+     * </pre>
+     * 这里单独实现是为了减少一次判断，以及entry.right = entry的赋值
      *
      * @param entry 被插入的节点
      * @param head  头节点
@@ -364,9 +373,9 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         Entry<Key> parent = entry.parent;
 
         if (parent != null) {
-            if (!entry.marked)
+            if (!entry.marked) {
                 entry.marked = true;
-            else {
+            } else {
                 cut(entry, parent, true);
                 cascadingCut(parent);
             }
@@ -374,7 +383,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     }
 
     /**
-     * 将x从当前所在的链表中剥离出来，
+     * 将x从当前所在的链表中剥离出来
      *
      * @param x      需要被剥离的节点
      * @param insert 是否使x成为"堆的根链表"中的一员
@@ -491,7 +500,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             System.out.println(start + pre + keyStr);
             Entry<Key> child = tmp.child;
             if (child != null) {
-                printHelper(child, start + "\t", preSpace + keyStr.length() -2);
+                printHelper(child, start + "\t", preSpace + keyStr.length() - 2);
             }
         });
     }
