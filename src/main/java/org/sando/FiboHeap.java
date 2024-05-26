@@ -1,6 +1,7 @@
 package org.sando;
 
 import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * 斐波那契堆
@@ -171,7 +172,8 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             tmp.parent = null;
             tmp = tmp.right;
         } while (tmp.parent != null);
-        appendList(tmp, minimum);
+        appendList(minimum, tmp);
+        entry.child = null;
     }
 
     /**
@@ -290,28 +292,19 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * 向双向循环链表a后追加链表b，从而合并成一个新的双向循环链表
      * 例子：
      * <p>
-     * m <--> k <--> a <--> m
-     * n <--> j <--> b <--> n
-     * m = tmp = a.right n = b.right
-     * a.right       = b.right; 对应： a的右边变成n
-     * b.right.left  = a; 对应： n的左边变成a
-     * b.right       = tmp; 对应： b的右边变成m
-     * tmp.left      = b; 对应： m的左边变成b
-     * 结果：m <--> k <--> a <--> n <--> j <-->b <--> m
+     *  a <--> m <--> k
+     *  b <--> n <--> j
+     * 结果： a <--> b <--> n <--> j <--> m <--> k
      * </p>
      *
      * @param a 双向循环链表a
      * @param b 双向循环链表b
      */
     private void appendList(Entry<Key> a, Entry<Key> b) {
-//        if (a == null) return b;
-//        if (b == null) return a;
-        Entry<Key> tmp;
-        tmp = a.right;
-        a.right = b.right;
-        b.right.left = a;
-        b.right = tmp;
-        tmp.left = b;
+        b.left.right = a.right;
+        a.right.left = b.left;
+        a.right = b;
+        b.left = a;
     }
 
     /**
@@ -383,7 +376,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 将x从当前所在的链表中剥离出来，
      *
-     * @param x 需要被剥离的节点
+     * @param x      需要被剥离的节点
      * @param insert 是否使x成为"堆的根链表"中的一员
      */
     private void cut(Entry<Key> x, Entry<Key> parent, boolean insert) {
