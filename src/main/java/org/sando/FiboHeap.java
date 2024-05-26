@@ -481,6 +481,36 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         return null;
     }
 
+    public void print() {
+        if (minimum == null) {
+            return;
+        }
+        printHelper(minimum, "", 0);
+    }
+
+    private void printHelper(Entry<Key> root, String start, int preSpace) {
+        loopSibling(root, tmp -> {
+            StringBuilder pre = new StringBuilder("└-->");
+            for (int i = 0; i < preSpace; i++) {
+                pre.insert(0, " ");
+            }
+            String keyStr = "[" + tmp.key + "]";
+            System.out.println(start + pre + keyStr);
+            Entry<Key> child = tmp.child;
+            if (child != null) {
+                printHelper(child, start + "\t", preSpace + keyStr.length() -2);
+            }
+        });
+    }
+
+    private void loopSibling(Entry<Key> entry, Consumer<? super Entry<Key>> consumer) {
+        Entry<Key> tmp = entry;
+        do {
+            consumer.accept(tmp);
+            tmp = tmp.right;
+        } while (entry != tmp);
+    }
+
     /**
      * 斐波那契堆节点
      */
