@@ -1,6 +1,8 @@
 package org.sando;
 
-import java.util.*;
+import java.util.AbstractQueue;
+import java.util.Comparator;
+import java.util.Iterator;
 
 /**
  * 斐波那契堆
@@ -178,7 +180,8 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             tmp.parent = null;
             tmp = tmp.right;
         } while (tmp.parent != null);
-        appendList(tmp, minimum);
+        appendList(minimum, tmp);
+        entry.child = null;
         entry.degree = 0;
     }
 
@@ -299,28 +302,19 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      * 向双向循环链表a后追加链表b，从而合并成一个新的双向循环链表
      * 例子：
      * <p>
-     * m <--> k <--> a <--> m
-     * n <--> j <--> b <--> n
-     * m = tmp = a.right n = b.right
-     * a.right       = b.right; 对应： a的右边变成n
-     * b.right.left  = a; 对应： n的左边变成a
-     * b.right       = tmp; 对应： b的右边变成m
-     * tmp.left      = b; 对应： m的左边变成b
-     * 结果：m <--> k <--> a <--> n <--> j <-->b <--> m
+     * a <--> m <--> k
+     * b <--> n <--> j
+     * 结果： a <--> b <--> n <--> j <--> m <--> k
      * </p>
      *
      * @param a 双向循环链表a
      * @param b 双向循环链表b
      */
     private void appendList(Entry<Key> a, Entry<Key> b) {
-//        if (a == null) return b;
-//        if (b == null) return a;
-        Entry<Key> tmp;
-        tmp = a.right;
-        a.right = b.right;
-        b.right.left = a;
-        b.right = tmp;
-        tmp.left = b;
+        b.left.right = a.right;
+        a.right.left = b.left;
+        a.right = b;
+        b.left = a;
     }
 
     /**
@@ -338,6 +332,15 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 将entry插入到双向链表中,head节点前
      * 例如：原本E <-> head , 调整后顺序变为 E <-> entry <-> head
+     * <p>
+     * 这个实际等价于：
+     * <pre>
+     *    if (entry.right == null) {
+     *         entry.right = entry;
+     *     }
+     *     appendList(entry, head);
+     * </pre>
+     * 这里单独实现是为了减少一次判断，以及entry.right = entry的赋值
      *
      * @param entry 被插入的节点
      * @param head  头节点
@@ -393,7 +396,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     }
 
     /**
-     * 将x从当前所在的链表中剥离出来，
+     * 将x从当前所在的链表中剥离出来
      *
      * @param x      需要被剥离的节点
      * @param insert 是否使x成为"堆的根链表"中的一员
@@ -596,7 +599,36 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
                 throws UnsupportedOperationException {
             throw new UnsupportedOperationException();
         }
+    }
 
+    public void print() {
+        if (minimum == null) {
+            return;
+        }
+        printHelper(minimum, "", 0);
+    }
+
+    private void printHelper(Entry<Key> root, String start, int preSpace) {
+        loopSibling(root, tmp -> {
+            StringBuilder pre = new StringBuilder("└-->");
+            for (int i = 0; i < preSpace; i++) {
+                pre.insert(0, " ");
+            }
+            String keyStr = "[" + tmp.key + "]";
+            System.out.println(start + pre + keyStr);
+            Entry<Key> child = tmp.child;
+            if (child != null) {
+                printHelper(child, start + "\t", preSpace + keyStr.length() - 2);
+            }
+        });
+    }
+
+    private void loopSibling(Entry<Key> entry, Consumer<? super Entry<Key>> consumer) {
+        Entry<Key> tmp = entry;
+        do {
+            consumer.accept(tmp);
+            tmp = tmp.right;
+        } while (entry != tmp);
     }
 
     /**
