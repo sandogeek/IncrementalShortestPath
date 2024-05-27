@@ -1,8 +1,7 @@
 package org.sando;
 
-import java.util.AbstractQueue;
-import java.util.Comparator;
-import java.util.Iterator;
+import java.util.*;
+import java.util.function.Consumer;
 
 /**
  * 斐波那契堆
