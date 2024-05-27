@@ -95,7 +95,7 @@ class FiboHeapTest {
 
     @Test
     public void increaseKey() {
-        changeKey(100, size -> rnd.nextInt(size/4));
+        changeKey(30_0000, size -> rnd.nextInt(size/4));
     }
 
     private static void changeKey(int size ,Function<Integer, Integer> function) {
@@ -105,7 +105,6 @@ class FiboHeapTest {
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
-            System.out.println(key);
             fiboHeap.insert(key);
             queue.offer(key);
             if (rnd.nextInt(5) < 1) {
@@ -123,8 +122,6 @@ class FiboHeapTest {
         }
         pollAndCheck(fiboHeap, queue);
         decreaseKeyList.forEach(Runnable::run);
-        System.out.println(fiboHeap);
-        System.out.println(queue);
         for (int i = 0; i < size - 1; i++) {
             pollAndCheck(fiboHeap, queue);
         }
@@ -236,9 +233,9 @@ class FiboHeapTest {
 
         @Override
         public String toString() {
-            return "IntKey{" +
-                    "key=" + key +
-                    '}';
+//            int hash = super.hashCode();
+//            return key + " " + Integer.toHexString(hash);
+            return key + "";
         }
     }
 }

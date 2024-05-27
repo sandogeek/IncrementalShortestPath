@@ -23,6 +23,10 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      */
     private Entry<Key> minimum = null;
     /**
+     * 次小节点
+     */
+    private Entry<Key> secondMin = null;
+    /**
      * 堆中节点的数量
      */
     private int size = 0;
@@ -95,15 +99,29 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             // 通过fail fast减少执行的逻辑，同时保护链表不被破坏
             boolean smaller = smaller(entry, minimum);
             insert(entry, minimum);
-            if (smaller) {
-                minimum = entry;
-            }
+            tryReplaceMin(entry, smaller);
         }
         size++;
         mod_count++;
         if (key instanceof IFiboHeapAware) {
             ((IFiboHeapAware) key).aware(this, entry);
         }
+    }
+
+    private boolean tryReplaceMin(Entry<Key> entry) {
+        boolean smaller = smaller(entry, minimum);
+        return tryReplaceMin(entry, smaller);
+    }
+
+    private boolean tryReplaceMin(Entry<Key> entry, boolean smaller) {
+        if (smaller) {
+            secondMin = minimum;
+            minimum = entry;
+            return true;
+        } else {
+            secondMin = null;
+        }
+        return false;
     }
 
     /**
@@ -120,7 +138,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             if (otherMin != null) {
                 appendList(minimum, other.minimum);
                 size += other.size;
-                minimum = getSmaller(otherMin, minimum);
+                tryReplaceMin(otherMin);
             }
         }
         other.forEach(key -> {
@@ -148,14 +166,20 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         allChild2RootList(oldMin);
 
         // 若oldMin是堆中唯一节点，则设置堆的最小节点为null；
-        // 否则，设置堆的最小节点为次小节点(oldMin.right)，然后再进行调节。
         if (oldMin.right == oldMin) {
             minimum = null;
         } else {
-            minimum = oldMin.right;
-            // 将oldMin从根链表中移除
-            removeEntry(oldMin);
-            consolidate();
+            if (secondMin != null) {
+                minimum = secondMin;
+                secondMin = null;
+                removeEntry(oldMin);
+            } else {
+                // 否则，设置堆的最小节点为oldMin.right，然后再进行调节。
+                minimum = oldMin.right;
+                // 将oldMin从根链表中移除
+                removeEntry(oldMin);
+                consolidate();
+            }
         }
         size--;
         mod_count++;
@@ -221,17 +245,8 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         } while (cur != iter);
         minimum = iter;
 
-        // 寻找最小元素
-        do {
-            // 最开始cur必定等于iter等于minimum，
-            // 此处先cur = cur.right能减少一次不必要的大小比较,当只有一个根节点时，执行比较次数为0次
-            cons[cur.degree] = null;
-            cur = cur.right;
-            if (cur == iter) {
-                break;
-            }
-            minimum = getSmaller(cur, minimum);
-        } while (true);
+        loopSibling(minimum, entry -> cons[entry.degree] = null);
+        refreshMinimum();
     }
 
     /*
@@ -295,6 +310,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         minimum = null;
         size = 0;
         mod_count++;
+        secondMin = null;
     }
 
     /**
@@ -365,9 +381,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             cascadingCut(parent);
         }
 
-        if (smaller(entry, minimum)) {
-            minimum = entry;
-        }
+        tryReplaceMin(entry);
         mod_count++;
     }
 
@@ -436,13 +450,27 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             cut(entry, parent, true);
             cascadingCut(parent);
         } else if (minimum == entry) {
-            Entry<Key> right = entry.right;
-            while (right != entry) {
-                if (smaller(right, minimum)) {
-                    minimum = right;
-                }
-                right = right.right;
+            refreshMinimum();
+        }
+        if (entry == secondMin) {
+            secondMin = null;
+        }
+    }
+
+    /**
+     * 最小值可能已经发生变化,需要刷新minimum
+     */
+    private void refreshMinimum() {
+        if (secondMin != null) {
+            boolean success = tryReplaceMin(secondMin);
+            if (success) {
+                return;
             }
+        }
+        Entry<Key> right = minimum.right;
+        while (right != minimum) {
+            tryReplaceMin(right);
+            right = right.right;
         }
     }
 
@@ -458,6 +486,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
         // key为null则意味着entry是最小值
         Key key = entry.key;
+        entry.key = null;
         // 以下相当于decrease(entry)，但为了避免调用smaller，所以采用了复制代码的方式
         Entry<Key> parent = entry.parent;
         if (parent != null) {
@@ -465,6 +494,9 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             cascadingCut(parent);
         } else {
             removeEntry(entry);
+        }
+        if (entry == secondMin) {
+            secondMin = null;
         }
         allChild2RootList(entry);
         consolidate();
@@ -485,20 +517,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      */
     private boolean smaller(Entry<Key> entry1, Entry<Key> entry2) {
         return comp.compare(entry1.key, entry2.key) < 0;
-    }
-
-    /**
-     * 获取entry1和entry2中较小的一个
-     *
-     * @param entry1 第一个entry,可以为null
-     * @param entry2 第二个entry,可以为null
-     * @return 较小的一个
-     */
-    private Entry<Key> getSmaller(Entry<Key> entry1, Entry<Key> entry2) {
-        if (smaller(entry1, entry2)) {
-            return entry1;
-        }
-        return entry2;
     }
 
     /**
