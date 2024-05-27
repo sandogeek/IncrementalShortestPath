@@ -451,8 +451,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             cascadingCut(parent);
         } else if (minimum == entry) {
             refreshMinimum();
-        }
-        if (entry == secondMin) {
+        } else if (entry == secondMin) {
             secondMin = null;
         }
     }
