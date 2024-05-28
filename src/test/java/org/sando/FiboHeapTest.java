@@ -156,7 +156,7 @@ class FiboHeapTest {
         new FiboHeapTest().delete();
     }
 
-    static class IntKey implements FiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey>,IHeapIndex {
+    static class IntKey implements AwareFiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey>,IHeapIndex {
         private FiboHeap<IntKey> fiboBeap;
         private FiboHeap.Entry<IntKey> entry;
         private int key;

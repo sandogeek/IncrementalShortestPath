@@ -4,12 +4,14 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * 走某条边给距离带来的变动
+ *
  * @author Sando
  * @version 1.0
  * @since 2024/5/19
  */
 @SuppressWarnings("rawtypes")
-class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, FiboHeap.IFiboHeapAware<EdgeDiff<K>> {
+class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, AwareFiboHeap.IFiboHeapAware<EdgeDiff<K>> {
     private static final Logger LOGGER = LoggerFactory.getLogger(EdgeDiff.class);
     BaseDijkVertex start;
     BaseDijkVertex end;

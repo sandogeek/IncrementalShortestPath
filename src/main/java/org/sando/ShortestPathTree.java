@@ -202,14 +202,14 @@ public class ShortestPathTree<K> {
     }
 
     class DijkHeapWrapper {
-        private final FiboHeap<VertexIndex<K>> heap;
+        private final Queue<VertexIndex<K>> heap;
         Map<K, VertexIndex<K>> map;
         VertexIndex<K> root;
 
         public DijkHeapWrapper() {
             map = new HashMap<>(vertexMap.size());
             vertexMap.values().forEach(vertex -> map.put(vertex.getVertex().getK(), new VertexIndex<>(vertex)));
-            heap = new FiboHeap<>();
+            heap = new AwareFiboHeap<>();
             root = map.get(ShortestPathTree.this.root.getVertex().getK());
             root.changePrevious(root);
             heap.add(root);
@@ -343,7 +343,7 @@ public class ShortestPathTree<K> {
         return vertex;
     }
 
-    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements FiboHeap.IFiboHeapAware<VertexIndex<K>>, Comparable<VertexIndex<K>> {
+    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements AwareFiboHeap.IFiboHeapAware<VertexIndex<K>>, Comparable<VertexIndex<K>> {
         private int index = Heap.NOT_IN_HEAP;
         private DijkstraVertex<K> dVertex;
         boolean selected;
