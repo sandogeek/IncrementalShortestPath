@@ -1,5 +1,6 @@
 package org.sando;
 
+import org.sando.heap.fiboheap.FiboHeap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -319,7 +320,7 @@ public class ShortestPathTreeUpdater<K> {
 
 
     static class QueueWrapper<K> {
-        private FiboHeap<EdgeDiff<K>> queue = new FiboHeap<>();
+        private FiboHeap<EdgeDiff<K>> queue = FiboHeap.create(EdgeDiff.class);
 
         @SuppressWarnings("unchecked")
         public void offer(EdgeDiff<K> edgeDiff) {

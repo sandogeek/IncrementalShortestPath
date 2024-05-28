@@ -1,5 +1,9 @@
 package org.sando;
 
+import org.sando.heap.fiboheap.Entry;
+import org.sando.heap.fiboheap.FiboHeap;
+import org.sando.heap.fiboheap.IFiboHeap;
+import org.sando.heap.fiboheap.IFiboHeapAware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -92,7 +96,7 @@ public class ShortestPathTree<K> {
             vertex.setDistance(distanceNew);
             LOGGER.debug("更新节点：{}", vertex);
             end.changePrevious(start);
-            if (end.index == Heap.NOT_IN_HEAP) {
+            if (end.getHeap() == null) {
                 heap.offer(end);
                 return;
             }
@@ -209,7 +213,7 @@ public class ShortestPathTree<K> {
         public DijkHeapWrapper() {
             map = new HashMap<>(vertexMap.size());
             vertexMap.values().forEach(vertex -> map.put(vertex.getVertex().getK(), new VertexIndex<>(vertex)));
-            heap = new AwareFiboHeap<>();
+            heap = FiboHeap.create(VertexIndex.class);
             root = map.get(ShortestPathTree.this.root.getVertex().getK());
             root.changePrevious(root);
             heap.add(root);
@@ -343,15 +347,14 @@ public class ShortestPathTree<K> {
         return vertex;
     }
 
-    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements AwareFiboHeap.IFiboHeapAware<VertexIndex<K>>, Comparable<VertexIndex<K>> {
-        private int index = Heap.NOT_IN_HEAP;
+    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements IFiboHeapAware<VertexIndex<K>>, Comparable<VertexIndex<K>> {
         private DijkstraVertex<K> dVertex;
         boolean selected;
         /**
          * 当前所在堆
          */
-        private FiboHeap<VertexIndex<K>> heap;
-        private FiboHeap.Entry<VertexIndex<K>> entry;
+        private IFiboHeap<VertexIndex<K>> heap;
+        private Entry<VertexIndex<K>> entry;
 
         public VertexIndex(DijkstraVertex<K> vertex) {
             this.dVertex = vertex;
@@ -386,10 +389,7 @@ public class ShortestPathTree<K> {
         }
 
         public void removeFromHeap() {
-            if (index == Heap.NOT_IN_HEAP) {
-                return;
-            }
-            heap.remove(this);
+            heap.delete(entry);
         }
 
         @Override
@@ -411,22 +411,22 @@ public class ShortestPathTree<K> {
         }
 
         @Override
-        public FiboHeap<VertexIndex<K>> getHeap() {
+        public IFiboHeap<VertexIndex<K>> getHeap() {
             return heap;
         }
 
         @Override
-        public void setHeap(FiboHeap<VertexIndex<K>> heap) {
+        public void setHeap(IFiboHeap<VertexIndex<K>> heap) {
             this.heap = heap;
         }
 
         @Override
-        public FiboHeap.Entry<VertexIndex<K>> getEntry() {
+        public Entry<VertexIndex<K>> getEntry() {
             return entry;
         }
 
         @Override
-        public void setEntry(FiboHeap.Entry<VertexIndex<K>> entry) {
+        public void setEntry(Entry<VertexIndex<K>> entry) {
             this.entry = entry;
         }
 

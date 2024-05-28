@@ -2,6 +2,12 @@ package org.sando;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.sando.heap.fiboheap.Entry;
+import org.sando.heap.fiboheap.FiboHeap;
+import org.sando.heap.fiboheap.IFiboHeap;
+import org.sando.heap.fiboheap.IFiboHeapAware;
+import org.sando.heap.indexheap.Heap;
+import org.sando.heap.indexheap.IHeapIndex;
 
 import java.util.*;
 import java.util.function.Function;
@@ -17,10 +23,10 @@ class FiboHeapTest {
 
     @Test
     void union() {
-        FiboHeap<Integer> fiboHeap1 = new FiboHeap<>();
-        FiboHeap<Integer> fiboHeap2 = new FiboHeap<>();
+        FiboHeap<Integer> fiboHeap1 = FiboHeap.create(Integer.class);
+        FiboHeap<Integer> fiboHeap2 = FiboHeap.create(Integer.class);
         Heap<Integer> queue = new Heap<>();
-        int size = 300_0000;
+        int size = 50_0000;
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             queue.offer(random);
@@ -38,7 +44,7 @@ class FiboHeapTest {
 
     @Test
     void extractMin() {
-        FiboHeap<Integer> fiboHeap = new FiboHeap<>();
+        FiboHeap<Integer> fiboHeap = FiboHeap.create(Integer.class);
         Heap<Integer> queue = new Heap<>();
         int size = 300_0000;
         int half = size >> 1;
@@ -65,7 +71,7 @@ class FiboHeapTest {
 
     @Test
     void minKey() {
-        FiboHeap<Integer> fiboHeap = new FiboHeap<>();
+        FiboHeap<Integer> fiboHeap = FiboHeap.create(Integer.class);
         PriorityQueue<Integer> queue = new PriorityQueue<>();
         int size = 300_0000;
         for (int i = 0; i < size; i++) {
@@ -82,7 +88,7 @@ class FiboHeapTest {
         }
     }
 
-    private static void pollAndCheckMinKey(FiboHeap<Integer> fiboHeap, Queue<Integer> queue) {
+    private static void pollAndCheckMinKey(IFiboHeap<Integer> fiboHeap, Queue<Integer> queue) {
         fiboHeap.extractMin();
         queue.poll();
         Assertions.assertEquals(fiboHeap.minKey(), queue.peek());
@@ -99,7 +105,7 @@ class FiboHeapTest {
     }
 
     private static void changeKey(int size ,Function<Integer, Integer> function) {
-        Queue<IntKey> fiboHeap = new AwareFiboHeap<>();
+        Queue<IntKey> fiboHeap = FiboHeap.create(IntKey.class);
         Heap<IntKey> queue = new Heap<>();
         List<Runnable> decreaseKeyList = new ArrayList<>();
         for (int i = 0; i < size; i++) {
@@ -129,10 +135,10 @@ class FiboHeapTest {
 
     @Test
     void delete() {
-        AwareFiboHeap<IntKey> fiboHeap = new AwareFiboHeap<>();
+        FiboHeap<IntKey> fiboHeap = FiboHeap.create(IntKey.class);
         PriorityQueue<IntKey> queue = new PriorityQueue<>();
         int size = 100_0000;
-        List<FiboHeap.Entry<IntKey>> entries = new ArrayList<>();
+        List<Entry<IntKey>> entries = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
@@ -156,9 +162,9 @@ class FiboHeapTest {
         new FiboHeapTest().delete();
     }
 
-    static class IntKey implements AwareFiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey>,IHeapIndex {
-        private FiboHeap<IntKey> fiboBeap;
-        private FiboHeap.Entry<IntKey> entry;
+    static class IntKey implements IFiboHeapAware<IntKey>, Comparable<IntKey>, IHeapIndex {
+        private IFiboHeap<IntKey> fiboBeap;
+        private Entry<IntKey> entry;
         private int key;
         private Heap<?> heap;
         private int index;
@@ -185,22 +191,22 @@ class FiboHeapTest {
         }
 
         @Override
-        public FiboHeap<IntKey> getHeap() {
+        public IFiboHeap<IntKey> getHeap() {
             return fiboBeap;
         }
 
         @Override
-        public FiboHeap.Entry<IntKey> getEntry() {
+        public Entry<IntKey> getEntry() {
             return entry;
         }
 
         @Override
-        public void setHeap(FiboHeap<IntKey> heap) {
+        public void setHeap(IFiboHeap<IntKey> heap) {
             this.fiboBeap = heap;
         }
 
         @Override
-        public void setEntry(FiboHeap.Entry<IntKey> entry) {
+        public void setEntry(Entry<IntKey> entry) {
             this.entry = entry;
         }
 

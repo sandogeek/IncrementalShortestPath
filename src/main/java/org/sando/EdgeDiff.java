@@ -1,5 +1,8 @@
 package org.sando;
 
+import org.sando.heap.fiboheap.Entry;
+import org.sando.heap.fiboheap.IFiboHeap;
+import org.sando.heap.fiboheap.IFiboHeapAware;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -11,35 +14,35 @@ import org.slf4j.LoggerFactory;
  * @since 2024/5/19
  */
 @SuppressWarnings("rawtypes")
-class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, AwareFiboHeap.IFiboHeapAware<EdgeDiff<K>> {
+class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, IFiboHeapAware<EdgeDiff<K>> {
     private static final Logger LOGGER = LoggerFactory.getLogger(EdgeDiff.class);
     BaseDijkVertex start;
     BaseDijkVertex end;
     long diff;
-    private FiboHeap<EdgeDiff<K>> heap;
-    private FiboHeap.Entry<EdgeDiff<K>> entry;
+    private IFiboHeap<EdgeDiff<K>> heap;
+    private Entry<EdgeDiff<K>> entry;
     /**
      * 持有当前对象的{@link BaseDijkVertex}数量
      */
     private int count;
 
     @Override
-    public FiboHeap<EdgeDiff<K>> getHeap() {
+    public IFiboHeap<EdgeDiff<K>> getHeap() {
         return heap;
     }
 
     @Override
-    public void setHeap(FiboHeap<EdgeDiff<K>> heap) {
+    public void setHeap(IFiboHeap<EdgeDiff<K>> heap) {
         this.heap = heap;
     }
 
     @Override
-    public FiboHeap.Entry<EdgeDiff<K>> getEntry() {
+    public Entry<EdgeDiff<K>> getEntry() {
         return entry;
     }
 
     @Override
-    public void setEntry(FiboHeap.Entry<EdgeDiff<K>> entry) {
+    public void setEntry(Entry<EdgeDiff<K>> entry) {
         this.entry = entry;
     }
 

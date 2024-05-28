@@ -1,4 +1,4 @@
-package org.sando;
+package org.sando.heap.indexheap;
 
 /**
  * 堆中数组的下标变化感知接口

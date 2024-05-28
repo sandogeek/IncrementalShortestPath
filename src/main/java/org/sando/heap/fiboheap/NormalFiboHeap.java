@@ -1,4 +1,4 @@
-package org.sando;
+package org.sando.heap.fiboheap;
 
 import java.util.*;
 import java.util.function.Consumer;
@@ -12,7 +12,7 @@ import java.util.function.Consumer;
  * @since 2024/5/22
  */
 @SuppressWarnings(value = {"unchecked", "rawtypes"})
-public class FiboHeap<Key> extends AbstractQueue<Key> {
+class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
     private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
     /**
      * Comparator.
@@ -43,17 +43,17 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      */
     private transient int mod_count;
 
-    public FiboHeap() {
+    NormalFiboHeap() {
         this(1 << 10);
     }
 
-    public FiboHeap(int initialCapacity) {
+    NormalFiboHeap(int initialCapacity) {
         int needLen = log2Floor(initialCapacity) + 2;
         dnSize = 1 << needLen;
         cons = new Entry[needLen];
     }
 
-    public FiboHeap(int initialCapacity, Comparator<? super Key> comp) {
+    NormalFiboHeap(int initialCapacity, Comparator<? super Key> comp) {
         this(initialCapacity);
         if (comp != null) {
             this.comp = comp;
@@ -86,6 +86,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @param key 被插入的key
      */
+    @Override
     public Entry<Key> insert(Key key) {
         Entry<Key> entry = new Entry<>(key);
         entry.parent = null;
@@ -125,17 +126,27 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 将other合并到当前堆中，注意：此操作会导致other被清空。
      */
-    public void union(FiboHeap<Key> other) {
+    @Override
+    public void union(IFiboHeap<Key> other) {
         if (other == null) {
             return;
         }
-        Entry<Key> otherMin = other.minimum;
+        NormalFiboHeap<Key> normalFiboHeap;
+        if (other instanceof FiboHeap) {
+            other = ((FiboHeap<Key>) other).heap;
+        }
+        if (other instanceof AwareFiboHeap) {
+            normalFiboHeap = (NormalFiboHeap<Key>)((AwareFiboHeap) other).heap;
+        } else {
+            normalFiboHeap = (NormalFiboHeap<Key>) other;
+        }
+        Entry<Key> otherMin = normalFiboHeap.minimum;
         if (minimum == null) {
             minimum = otherMin;
         } else {
             if (otherMin != null) {
-                appendList(minimum, other.minimum);
-                size += other.size;
+                appendList(minimum, normalFiboHeap.minimum);
+                size += normalFiboHeap.size;
                 tryReplaceMin(otherMin);
             }
         }
@@ -149,6 +160,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @return 最小节点, 如果堆为空，则返回null
      */
+    @Override
     public Key extractMin() {
         if (minimum == null) {
             return null;
@@ -296,6 +308,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
     /**
      * 清空当前堆
      */
+    @Override
     public void clear() {
         minimum = null;
         size = 0;
@@ -327,6 +340,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @return 堆中最小的key，如果堆为空，则返回null
      */
+    @Override
     public Key minKey() {
         if (minimum == null) {
             return null;
@@ -471,6 +485,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @param entry 被移除的节点
      */
+    @Override
     public void delete(Entry<Key> entry) {
         if (entry == minimum) {
             extractMin();
@@ -511,6 +526,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @return 如果为空返回true，否则返回false
      */
+    @Override
     public boolean isEmpty() {
         return size == 0;
     }
@@ -540,10 +556,10 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             super();
 
             // Start at min.
-            next = FiboHeap.this.minimum;
+            next = NormalFiboHeap.this.minimum;
 
             // Copy mod count.
-            my_mod_count = FiboHeap.this.mod_count;
+            my_mod_count = NormalFiboHeap.this.mod_count;
         }
 
         /**
@@ -551,7 +567,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
          */
         @Override
         public boolean hasNext() {
-            if (my_mod_count != FiboHeap.this.mod_count) {
+            if (my_mod_count != NormalFiboHeap.this.mod_count) {
                 throw new ConcurrentModificationException();
             }
 
@@ -585,7 +601,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             }
             Entry<Key> first;
             do {
-                first = (entry.parent == null) ? FiboHeap.this.minimum : entry.parent.child;
+                first = (entry.parent == null) ? NormalFiboHeap.this.minimum : entry.parent.child;
                 if (entry.right != first) {
                     return entry.right;
                 }
@@ -605,6 +621,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
     }
 
+    @Override
     public void print() {
         if (minimum == null) {
             return;
@@ -633,23 +650,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             consumer.accept(tmp);
             tmp = tmp.right;
         } while (entry != tmp);
-    }
-
-    /**
-     * 斐波那契堆节点
-     */
-    public static class Entry<Key> {
-        Key key; // 键
-        Entry<Key> left; // 左兄弟
-        Entry<Key> right; // 右兄弟
-        Entry<Key> parent; // 父节点
-        Entry<Key> child; // 第一个孩子
-        int degree; // 度(当前节点的孩子数目)
-        boolean marked; // 第一个孩子是否被删除（在删除节点时有用）
-
-        public Entry(Key key) {
-            this.key = key;
-        }
     }
 
 }
