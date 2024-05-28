@@ -86,7 +86,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @param key 被插入的key
      */
-    public void insert(Key key) {
+    public Entry<Key> insert(Key key) {
         Entry<Key> entry = new Entry<>(key);
         entry.parent = null;
         entry.marked = false;
@@ -103,9 +103,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
         size++;
         mod_count++;
-        if (key instanceof IFiboHeapAware) {
-            ((IFiboHeapAware) key).aware(this, entry);
-        }
+        return entry;
     }
 
     private boolean tryReplaceMin(Entry<Key> entry) {
@@ -141,11 +139,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
                 tryReplaceMin(otherMin);
             }
         }
-        other.forEach(key -> {
-            if (key instanceof IFiboHeapAware) {
-                ((IFiboHeapAware) key).union(this);
-            }
-        });
         mod_count++;
         // 清理另一个堆
         other.clear();
@@ -183,9 +176,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
         size--;
         mod_count++;
-        if (key instanceof IFiboHeapAware) {
-            ((IFiboHeapAware) key).aware(null, null);
-        }
         return key;
     }
 
@@ -374,7 +364,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @param entry 变小的entry
      */
-    private void decreaseKey(Entry<Key> entry) {
+    void decreaseKey(Entry<Key> entry) {
         Entry<Key> parent = entry.parent;
         if (parent != null && smaller(entry, parent)) {
             cut(entry, parent, true);
@@ -436,7 +426,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
      *
      * @param entry 变大的entry
      */
-    private void increaseKey(Entry<Key> entry) {
+    void increaseKey(Entry<Key> entry) {
         // 将node每一个儿子(不包括孙子,重孙,...)都添加到"斐波那契堆的根链表"中
         allChild2RootList(entry);
 
@@ -487,7 +477,6 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
             return;
         }
         // key为null则意味着entry是最小值
-        Key key = entry.key;
         entry.key = null;
         // 以下相当于decrease(entry)，但为了避免调用smaller，所以采用了复制代码的方式
         Entry<Key> parent = entry.parent;
@@ -504,14 +493,10 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         consolidate();
         size--;
         mod_count++;
-        if (key instanceof IFiboHeapAware) {
-            ((IFiboHeapAware) key).aware(null, null);
-        }
     }
 
     /**
      * entry1是否小于entry2, key为null，意味着处于最小值
-     * TODO 检查所有调用，看看是否把==null判断挪出去
      *
      * @param entry1 第一个entry,可以为null
      * @param entry2 第二个entry,可以为null
@@ -667,64 +652,4 @@ public class FiboHeap<Key> extends AbstractQueue<Key> {
         }
     }
 
-    /**
-     * 斐波那契堆Key出/入堆感知接口
-     */
-    @SuppressWarnings("unchecked")
-    interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
-        /**
-         * 当Key出/入堆时调用,用于知道自己入堆和出堆
-         *
-         * @param heap 入堆时非null，出堆时为null
-         */
-        default void aware(FiboHeap<Key> heap, Entry<Key> entry) {
-            setHeap(heap);
-            setEntry(entry);
-        }
-
-        /**
-         * 被union到一个新的堆
-         *
-         * @param heap 新堆
-         */
-        default void union(FiboHeap<Key> heap) {
-            setHeap(heap);
-        }
-
-        /**
-         * 获取对应的堆
-         */
-        FiboHeap<Key> getHeap();
-
-        void setHeap(FiboHeap<Key> heap);
-
-        /**
-         * 获取key对应的entry
-         */
-        Entry<Key> getEntry();
-
-        void setEntry(Entry<Key> entry);
-
-        /**
-         * key变大
-         */
-        default void increaseKey() {
-            FiboHeap<Key> heap = getHeap();
-            if (heap == null) {
-                return;
-            }
-            heap.increaseKey(getEntry());
-        }
-
-        /**
-         * key变小
-         */
-        default void decreaseKey() {
-            FiboHeap<Key> heap = getHeap();
-            if (heap == null) {
-                return;
-            }
-            getHeap().decreaseKey(getEntry());
-        }
-    }
 }

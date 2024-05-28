@@ -56,7 +56,7 @@ class FiboHeapTest {
         }
     }
 
-    private static void pollAndCheck(FiboHeap<? extends Comparable<?>> fiboHeap, Queue<? extends Comparable<?>> queue) {
+    private static void pollAndCheck(Queue<? extends Comparable<?>> fiboHeap, Queue<? extends Comparable<?>> queue) {
         Comparable<?> comparable1 = fiboHeap.poll();
         Comparable<?> comparable2 = queue.poll();
 //        System.out.println("poll result:" + comparable1 + " " + comparable2);
@@ -99,13 +99,13 @@ class FiboHeapTest {
     }
 
     private static void changeKey(int size ,Function<Integer, Integer> function) {
-        FiboHeap<IntKey> fiboHeap = new FiboHeap<>();
+        Queue<IntKey> fiboHeap = new AwareFiboHeap<>();
         Heap<IntKey> queue = new Heap<>();
         List<Runnable> decreaseKeyList = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
-            fiboHeap.insert(key);
+            fiboHeap.offer(key);
             queue.offer(key);
             if (rnd.nextInt(5) < 1) {
                 decreaseKeyList.add(() -> {
@@ -129,7 +129,7 @@ class FiboHeapTest {
 
     @Test
     void delete() {
-        FiboHeap<IntKey> fiboHeap = new FiboHeap<>();
+        AwareFiboHeap<IntKey> fiboHeap = new AwareFiboHeap<>();
         PriorityQueue<IntKey> queue = new PriorityQueue<>();
         int size = 100_0000;
         List<FiboHeap.Entry<IntKey>> entries = new ArrayList<>();
@@ -137,7 +137,7 @@ class FiboHeapTest {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
 //            System.out.println(key);
-            fiboHeap.insert(key);
+            fiboHeap.offer(key);
             if (rnd.nextInt(5) < 3) {
                 entries.add(key.getEntry());
             } else {
@@ -156,7 +156,7 @@ class FiboHeapTest {
         new FiboHeapTest().delete();
     }
 
-    static class IntKey implements FiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey>,IHeapIndex {
+    static class IntKey implements AwareFiboHeap.IFiboHeapAware<IntKey>, Comparable<IntKey>,IHeapIndex {
         private FiboHeap<IntKey> fiboBeap;
         private FiboHeap.Entry<IntKey> entry;
         private int key;
