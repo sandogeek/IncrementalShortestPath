@@ -9,40 +9,43 @@ import org.slf4j.LoggerFactory;
  * @since 2024/5/19
  */
 @SuppressWarnings("rawtypes")
-class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, IHeapIndex {
+class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, FiboHeap.IFiboHeapAware<EdgeDiff<K>> {
     private static final Logger LOGGER = LoggerFactory.getLogger(EdgeDiff.class);
     BaseDijkVertex start;
     BaseDijkVertex end;
     long diff;
-    private int index = Heap.NOT_IN_HEAP;
-    private Heap<?> heap;
+    private FiboHeap<EdgeDiff<K>> heap;
+    private FiboHeap.Entry<EdgeDiff<K>> entry;
     /**
      * 持有当前对象的{@link BaseDijkVertex}数量
      */
     private int count;
 
     @Override
-    public void indexChange(Heap<?> heap, int index) {
-        this.index = index;
-        if (this.heap != null && this.heap != heap) {
-            throw new IllegalArgumentException("should not put this into two heap");
-        }
-        if (index == Heap.NOT_IN_HEAP) {
-            LOGGER.debug("移除edgeDiff:{}", this);
-        }
-        this.heap = heap;
-    }
-
-    public void remove() {
-        if (index == Heap.NOT_IN_HEAP) {
-            return;
-        }
-        heap.remove(this);
+    public FiboHeap<EdgeDiff<K>> getHeap() {
+        return heap;
     }
 
     @Override
-    public int getIndex() {
-        return index;
+    public void setHeap(FiboHeap<EdgeDiff<K>> heap) {
+        this.heap = heap;
+    }
+
+    @Override
+    public FiboHeap.Entry<EdgeDiff<K>> getEntry() {
+        return entry;
+    }
+
+    @Override
+    public void setEntry(FiboHeap.Entry<EdgeDiff<K>> entry) {
+        this.entry = entry;
+    }
+
+    public void remove() {
+        if (heap == null) {
+            return;
+        }
+        heap.delete(entry);
     }
 
     public void incCount() {

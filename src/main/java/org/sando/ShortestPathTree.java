@@ -96,7 +96,7 @@ public class ShortestPathTree<K> {
                 heap.offer(end);
                 return;
             }
-            heap.priorityChange(end.index, -1);
+            end.decreaseKey();
         }
     }
 
@@ -202,14 +202,14 @@ public class ShortestPathTree<K> {
     }
 
     class DijkHeapWrapper {
-        private final Heap<VertexIndex<K>> heap;
+        private final FiboHeap<VertexIndex<K>> heap;
         Map<K, VertexIndex<K>> map;
         VertexIndex<K> root;
 
         public DijkHeapWrapper() {
             map = new HashMap<>(vertexMap.size());
             vertexMap.values().forEach(vertex -> map.put(vertex.getVertex().getK(), new VertexIndex<>(vertex)));
-            heap = new Heap<>();
+            heap = new FiboHeap<>();
             root = map.get(ShortestPathTree.this.root.getVertex().getK());
             root.changePrevious(root);
             heap.add(root);
@@ -229,10 +229,6 @@ public class ShortestPathTree<K> {
 
         public boolean offer(VertexIndex<K> kVertexIndex) {
             return heap.offer(kVertexIndex);
-        }
-
-        public void priorityChange(int index, int compareResult) {
-            heap.priorityChange(index, compareResult);
         }
 
         public void clear() {
@@ -347,14 +343,15 @@ public class ShortestPathTree<K> {
         return vertex;
     }
 
-    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements IHeapIndex, Comparable<VertexIndex<K>> {
+    static class VertexIndex<K> extends BaseDijkVertex<K, VertexIndex<K>> implements FiboHeap.IFiboHeapAware<VertexIndex<K>>, Comparable<VertexIndex<K>> {
         private int index = Heap.NOT_IN_HEAP;
         private DijkstraVertex<K> dVertex;
         boolean selected;
         /**
          * 当前所在堆
          */
-        private Heap<?> heap;
+        private FiboHeap<VertexIndex<K>> heap;
+        private FiboHeap.Entry<VertexIndex<K>> entry;
 
         public VertexIndex(DijkstraVertex<K> vertex) {
             this.dVertex = vertex;
@@ -388,16 +385,6 @@ public class ShortestPathTree<K> {
             return (int) (dVertex.getDistance() - o.dVertex.getDistance());
         }
 
-        @Override
-        public void indexChange(Heap<?> heap, int index) {
-            if (index == Heap.NOT_IN_HEAP) {
-                this.heap = null;
-            } else {
-                this.heap = heap;
-            }
-            this.index = index;
-        }
-
         public void removeFromHeap() {
             if (index == Heap.NOT_IN_HEAP) {
                 return;
@@ -411,10 +398,36 @@ public class ShortestPathTree<K> {
                 return getDistance();
             }
             long result = dVertex.changeDistance(diff);
-            if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index, diff > 0 ? 1 : -1);
-            }
+            priorityChange(diff);
             return result;
+        }
+
+        private void priorityChange(long diff) {
+            if (diff > 0) {
+                increaseKey();
+            } else {
+                decreaseKey();
+            }
+        }
+
+        @Override
+        public FiboHeap<VertexIndex<K>> getHeap() {
+            return heap;
+        }
+
+        @Override
+        public void setHeap(FiboHeap<VertexIndex<K>> heap) {
+            this.heap = heap;
+        }
+
+        @Override
+        public FiboHeap.Entry<VertexIndex<K>> getEntry() {
+            return entry;
+        }
+
+        @Override
+        public void setEntry(FiboHeap.Entry<VertexIndex<K>> entry) {
+            this.entry = entry;
         }
 
         @Override
@@ -435,27 +448,18 @@ public class ShortestPathTree<K> {
                 return;
             }
             dVertex.setDistance(distanceNew);
-            if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index, distanceNew > distance ? 1 : -1);
-            }
+            priorityChange(distanceNew > distance ? 1 : -1);
         }
 
         public void resetDistance() {
             long distance = getDistance();
             dVertex.resetDistance();
-            if (index != Heap.NOT_IN_HEAP) {
-                heap.priorityChange(index, getDistance() > distance ? 1 : -1);
-            }
+            priorityChange(getDistance() > distance ? 1 : -1);
         }
 
         @Override
         public boolean isNotSelected() {
             return !selected;
-        }
-
-        @Override
-        public int getIndex() {
-            return index;
         }
 
         @Override

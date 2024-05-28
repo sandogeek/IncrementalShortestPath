@@ -26,7 +26,7 @@ public class ShortestPathTreeUpdater<K> {
     /**
      * 多边权重变更，是否合并更新
      */
-    private boolean mergeUpdate;
+    private final boolean mergeUpdate;
     private Map<IEdge<K>, Long> changeMap;
 
     public ShortestPathTreeUpdater(ShortestPathTree<K> pathTree, boolean mergeUpdate) {
@@ -169,7 +169,7 @@ public class ShortestPathTreeUpdater<K> {
             handleOutEdge(queueWrapper, endVertex, ShortestPathTreeUpdater::decFilter);
         }
         pollUntilEmpty(queueWrapper, (BiPredicate<V, V>) ShortestPathTreeUpdater::decFilter);
-        if (!queueWrapper.isEmpty()) {
+        if (queueWrapper.isNotEmpty()) {
             queueWrapper.clear();
         }
     }
@@ -205,7 +205,7 @@ public class ShortestPathTreeUpdater<K> {
     }
 
     private <V extends BaseDijkVertex<K, V>> void pollUntilEmpty(QueueWrapper<K> queueWrapper, BiPredicate<V, V> edgeFilter) {
-        while (!queueWrapper.isEmpty()) {
+        while (queueWrapper.isNotEmpty()) {
             EdgeDiff<K> poll = queueWrapper.poll();
             LOGGER.debug("选中最短路径:{}", poll);
             if (poll.diff != 0) {
@@ -319,7 +319,7 @@ public class ShortestPathTreeUpdater<K> {
 
 
     static class QueueWrapper<K> {
-        private Heap<EdgeDiff<K>> queue = new Heap<>();
+        private FiboHeap<EdgeDiff<K>> queue = new FiboHeap<>();
 
         @SuppressWarnings("unchecked")
         public void offer(EdgeDiff<K> edgeDiff) {
@@ -328,20 +328,15 @@ public class ShortestPathTreeUpdater<K> {
         }
 
         public EdgeDiff<K> poll() {
-            EdgeDiff<K> edgeDiff = queue.poll();
-            return edgeDiff;
+            return queue.poll();
         }
 
         public void clear() {
             queue.clear();
         }
 
-        public void priorityChange(int index, int compareResult) {
-            queue.priorityChange(index, compareResult);
-        }
-
-        public boolean isEmpty() {
-            return queue.isEmpty();
+        public boolean isNotEmpty() {
+            return !queue.isEmpty();
         }
     }
 }
