@@ -23,7 +23,7 @@ class AwareFiboHeap<Key extends IFiboHeapAware<Key>> extends AbstractQueue<Key> 
         heap = new NormalFiboHeap<>(comp);
     }
 
-    public Entry<Key> insert(Key key) {
+    public IHandle<Key> insert(Key key) {
         Entry<Key> entry = heap.insert(key);
         key.aware(heap, entry);
         return entry;
@@ -49,9 +49,9 @@ class AwareFiboHeap<Key extends IFiboHeapAware<Key>> extends AbstractQueue<Key> 
         heap.union(other);
     }
 
-    public void delete(Entry<Key> entry) {
-        Key key = entry.key;
-        heap.delete(entry);
+    public void delete(IHandle<Key> handle) {
+        Key key = handle.getKey();
+        heap.delete(handle);
         key.aware(null, null);
     }
 

@@ -1,9 +1,9 @@
 package org.sando;
 
 import org.jheaps.AddressableHeap;
-import org.sando.heap.fiboheap.Entry;
 import org.sando.heap.fiboheap.IFiboHeap;
 import org.sando.heap.fiboheap.IFiboHeapAware;
+import org.sando.heap.fiboheap.IHandle;
 import org.sando.heap.indexheap.Heap;
 import org.sando.heap.indexheap.IHeapIndex;
 
@@ -14,7 +14,7 @@ import org.sando.heap.indexheap.IHeapIndex;
  */
 class IntKey implements IFiboHeapAware<IntKey>, Comparable<IntKey>, IHeapIndex {
     private IFiboHeap<IntKey> fiboBeap;
-    private Entry<IntKey> entry;
+    private IHandle<IntKey> entry;
     private int key;
     Heap<?> heap;
     private int index;
@@ -63,7 +63,7 @@ class IntKey implements IFiboHeapAware<IntKey>, Comparable<IntKey>, IHeapIndex {
     }
 
     @Override
-    public Entry<IntKey> getEntry() {
+    public IHandle<IntKey> getHandle() {
         return entry;
     }
 
@@ -73,7 +73,7 @@ class IntKey implements IFiboHeapAware<IntKey>, Comparable<IntKey>, IHeapIndex {
     }
 
     @Override
-    public void setEntry(Entry<IntKey> entry) {
+    public void setHandle(IHandle<IntKey> entry) {
         this.entry = entry;
     }
 

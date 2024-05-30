@@ -3,7 +3,7 @@ package org.sando.heap.fiboheap;
 /**
  * 斐波那契堆节点
  */
-public class Entry<Key> {
+class Entry<Key> implements IHandle<Key> {
     Key key; // 键
     Entry<Key> left; // 左兄弟
     Entry<Key> right; // 右兄弟
@@ -14,5 +14,10 @@ public class Entry<Key> {
 
     public Entry(Key key) {
         this.key = key;
+    }
+
+    @Override
+    public Key getKey() {
+        return key;
     }
 }

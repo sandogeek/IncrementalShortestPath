@@ -2,9 +2,9 @@ package org.sando;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
-import org.sando.heap.fiboheap.Entry;
 import org.sando.heap.fiboheap.FiboHeap;
 import org.sando.heap.fiboheap.IFiboHeap;
+import org.sando.heap.fiboheap.IHandle;
 import org.sando.heap.indexheap.Heap;
 
 import java.util.*;
@@ -136,14 +136,14 @@ class FiboHeapTest {
         FiboHeap<IntKey> fiboHeap = FiboHeap.create(IntKey.class);
         PriorityQueue<IntKey> queue = new PriorityQueue<>();
         int size = 100_0000;
-        List<Entry<IntKey>> entries = new ArrayList<>();
+        List<IHandle<IntKey>> entries = new ArrayList<>();
         for (int i = 0; i < size; i++) {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
 //            System.out.println(key);
             fiboHeap.offer(key);
             if (rnd.nextInt(5) < 3) {
-                entries.add(key.getEntry());
+                entries.add(key.getHandle());
             } else {
                 queue.offer(key);
             }

@@ -71,7 +71,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> 
     }
 
     @Override
-    public Entry<Key> insert(Key key) {
+    public IHandle<Key> insert(Key key) {
         return heap.insert(key);
     }
 
@@ -91,7 +91,7 @@ public class FiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> 
     }
 
     @Override
-    public void delete(Entry<Key> entry) {
+    public void delete(IHandle<Key> entry) {
         heap.delete(entry);
     }
 

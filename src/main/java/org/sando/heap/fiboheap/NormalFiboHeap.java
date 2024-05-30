@@ -449,10 +449,11 @@ class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
     /**
      * 移除指定节点，为了效率，不检查节点是否属于当前堆
      *
-     * @param entry 被移除的节点
+     * @param handle 被移除的节点
      */
     @Override
-    public void delete(Entry<Key> entry) {
+    public void delete(IHandle<Key> handle) {
+        Entry<Key> entry = (Entry<Key>) handle;
         if (entry == minimum) {
             extractMin();
             return;

@@ -1,8 +1,8 @@
 package org.sando;
 
-import org.sando.heap.fiboheap.Entry;
 import org.sando.heap.fiboheap.IFiboHeap;
 import org.sando.heap.fiboheap.IFiboHeapAware;
+import org.sando.heap.fiboheap.IHandle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -20,7 +20,7 @@ class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, IFiboHeapAware<EdgeDiff<K>
     BaseDijkVertex end;
     long diff;
     private IFiboHeap<EdgeDiff<K>> heap;
-    private Entry<EdgeDiff<K>> entry;
+    private IHandle<EdgeDiff<K>> handle;
     /**
      * 持有当前对象的{@link BaseDijkVertex}数量
      */
@@ -37,20 +37,20 @@ class EdgeDiff<K> implements Comparable<EdgeDiff<K>>, IFiboHeapAware<EdgeDiff<K>
     }
 
     @Override
-    public Entry<EdgeDiff<K>> getEntry() {
-        return entry;
+    public IHandle<EdgeDiff<K>> getHandle() {
+        return handle;
     }
 
     @Override
-    public void setEntry(Entry<EdgeDiff<K>> entry) {
-        this.entry = entry;
+    public void setHandle(IHandle<EdgeDiff<K>> handle) {
+        this.handle = handle;
     }
 
     public void remove() {
         if (heap == null) {
             return;
         }
-        heap.delete(entry);
+        heap.delete(handle);
     }
 
     public void incCount() {

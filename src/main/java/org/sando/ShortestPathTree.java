@@ -1,9 +1,6 @@
 package org.sando;
 
-import org.sando.heap.fiboheap.Entry;
-import org.sando.heap.fiboheap.FiboHeap;
-import org.sando.heap.fiboheap.IFiboHeap;
-import org.sando.heap.fiboheap.IFiboHeapAware;
+import org.sando.heap.fiboheap.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -354,7 +351,7 @@ public class ShortestPathTree<K> {
          * 当前所在堆
          */
         private IFiboHeap<VertexIndex<K>> heap;
-        private Entry<VertexIndex<K>> entry;
+        private IHandle<VertexIndex<K>> entry;
 
         public VertexIndex(DijkstraVertex<K> vertex) {
             this.dVertex = vertex;
@@ -421,12 +418,12 @@ public class ShortestPathTree<K> {
         }
 
         @Override
-        public Entry<VertexIndex<K>> getEntry() {
+        public IHandle<VertexIndex<K>> getHandle() {
             return entry;
         }
 
         @Override
-        public void setEntry(Entry<VertexIndex<K>> entry) {
+        public void setHandle(IHandle<VertexIndex<K>> entry) {
             this.entry = entry;
         }
 

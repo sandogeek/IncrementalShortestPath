@@ -10,9 +10,9 @@ public interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
      *
      * @param heap 入堆时非null，出堆时为null
      */
-    default void aware(IFiboHeap<Key> heap, Entry<Key> entry) {
+    default void aware(IFiboHeap<Key> heap, IHandle<Key> handle) {
         setHeap(heap);
-        setEntry(entry);
+        setHandle(handle);
     }
 
     /**
@@ -34,9 +34,9 @@ public interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
     /**
      * 获取key对应的entry
      */
-    Entry<Key> getEntry();
+    IHandle<Key> getHandle();
 
-    void setEntry(Entry<Key> entry);
+    void setHandle(IHandle<Key> entry);
 
     /**
      * key变大
@@ -46,7 +46,7 @@ public interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
             return;
         }
         NormalFiboHeap<Key> heap = (NormalFiboHeap<Key>)getHeap();
-        heap.increaseKey(getEntry());
+        heap.increaseKey((Entry<Key>) getHandle());
     }
 
     /**
@@ -57,6 +57,6 @@ public interface IFiboHeapAware<Key extends IFiboHeapAware<Key>> {
             return;
         }
         NormalFiboHeap<Key> heap = (NormalFiboHeap<Key>)getHeap();
-        heap.decreaseKey(getEntry());
+        heap.decreaseKey((Entry<Key>)getHandle());
     }
 }
