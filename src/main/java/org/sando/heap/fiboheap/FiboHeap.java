@@ -21,11 +21,8 @@ public class FiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> 
         return new FiboHeap(keyClass);
     }
 
-    public static <Key, T extends Key> FiboHeap<T> create(Class<Key> keyClass, int initialCapacity) {
-        return new FiboHeap(keyClass, initialCapacity);
-    }
-    public static <Key, T extends Key> FiboHeap<T> create(Class<Key> keyClass, int initialCapacity, Comparator<? super Key> comp) {
-        return new FiboHeap(keyClass, initialCapacity, comp);
+    public static <Key, T extends Key> FiboHeap<T> create(Class<Key> keyClass, Comparator<? super Key> comp) {
+        return new FiboHeap(keyClass, comp);
     }
 
     FiboHeap(Class<Key> keyClass) {
@@ -38,22 +35,12 @@ public class FiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> 
         queue = (Queue<Key>) heap;
     }
 
-    FiboHeap(Class<Key> keyClass, int initialCapacity) {
+    FiboHeap(Class<Key> keyClass, Comparator<? super Key> comp) {
         boolean assignableFrom = IFiboHeapAware.class.isAssignableFrom(keyClass);
         if (assignableFrom) {
-            heap = new AwareFiboHeap<>(initialCapacity);
+            heap = new AwareFiboHeap<>(comp);
         } else {
-            heap = new NormalFiboHeap(initialCapacity);
-        }
-        queue = (Queue<Key>) heap;
-    }
-
-    FiboHeap(Class<Key> keyClass, int initialCapacity, Comparator<? super Key> comp) {
-        boolean assignableFrom = IFiboHeapAware.class.isAssignableFrom(keyClass);
-        if (assignableFrom) {
-            heap = new AwareFiboHeap<>(initialCapacity, comp);
-        } else {
-            heap = new NormalFiboHeap(initialCapacity, comp);
+            heap = new NormalFiboHeap(comp);
         }
         queue = (Queue<Key>) heap;
     }
@@ -95,12 +82,12 @@ public class FiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> 
 
     @Override
     public Key extractMin() {
-        return (Key)heap.extractMin();
+        return (Key) heap.extractMin();
     }
 
     @Override
     public Key minKey() {
-        return (Key)heap.minKey();
+        return (Key) heap.minKey();
     }
 
     @Override

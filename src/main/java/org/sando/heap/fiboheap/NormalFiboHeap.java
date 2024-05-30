@@ -13,6 +13,8 @@ import java.util.function.Consumer;
  */
 @SuppressWarnings(value = {"unchecked", "rawtypes"})
 class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
+    private static final int CONS_LENGTH = log2Floor(Integer.MAX_VALUE);
+    private static final ThreadLocal<Entry[]> CONS = ThreadLocal.withInitial(() -> new Entry[CONS_LENGTH]);
     /**
      * Comparator.
      */
@@ -30,30 +32,14 @@ class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
      */
     private int size = 0;
     /**
-     * cons数组，调整堆的辅助数组
-     */
-    private Entry[] cons;
-    /**
-     * 下使得cons数组容量上升的size临界值
-     */
-    private int dnSize;
-    /**
      * The mod count.
      */
     private transient int mod_count;
 
     NormalFiboHeap() {
-        this(1 << 10);
     }
 
-    NormalFiboHeap(int initialCapacity) {
-        int needLen = log2Floor(initialCapacity) + 2;
-        dnSize = 1 << needLen;
-        cons = new Entry[needLen];
-    }
-
-    NormalFiboHeap(int initialCapacity, Comparator<? super Key> comp) {
-        this(initialCapacity);
+    NormalFiboHeap(Comparator<? super Key> comp) {
         if (comp != null) {
             this.comp = comp;
         }
@@ -215,7 +201,7 @@ class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
      * 堆的节点总数对应斐波那契数，让节点的度对应斐波那契数列上的位置下标
      */
     private void consolidate() {
-        ensureConsLength();
+        Entry[] cons = CONS.get();
         // cur当前节点，当cur等于iter时，循环终止
         Entry<Key> iter = minimum, cur = minimum;
         Entry<Key> smaller;
@@ -265,25 +251,6 @@ class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
         child.parent = parent;
         parent.degree += 1;
         child.marked = false;
-    }
-
-    /**
-     * 确保cons数组大小充足
-     */
-    private void ensureConsLength() {
-        if (size < dnSize) {
-            // 堆大小没有达到临界值，cons数组大小就是够用的
-            return;
-        }
-        // 根据斐波那契性质，计算出最大的度 = (int) Math.floor(Math.log(size) / LOG2) + 1
-        // 度从0开始，所以数组容量要加1
-        // 这里实际+2就足够了，选择+3是为了减少new Entry[]的次数（dnSize每次扩大1<<3倍）
-        int needLen = log2Floor(size) + 3;
-        if (needLen > cons.length) {
-            cons = new Entry[needLen];
-            // 计算下一个使得cons数组容量上升的size
-            dnSize = 1 << needLen;
-        }
     }
 
     /**

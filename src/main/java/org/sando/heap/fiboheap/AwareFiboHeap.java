@@ -19,12 +19,8 @@ class AwareFiboHeap<Key extends IFiboHeapAware<Key>> extends AbstractQueue<Key> 
         heap = new NormalFiboHeap<>();
     }
 
-    AwareFiboHeap(int initialCapacity) {
-        heap = new NormalFiboHeap<>(initialCapacity);
-    }
-
-    AwareFiboHeap(int initialCapacity, Comparator comp) {
-        heap = new NormalFiboHeap<>(initialCapacity, comp);
+    AwareFiboHeap(Comparator comp) {
+        heap = new NormalFiboHeap<>(comp);
     }
 
     public Entry<Key> insert(Key key) {
