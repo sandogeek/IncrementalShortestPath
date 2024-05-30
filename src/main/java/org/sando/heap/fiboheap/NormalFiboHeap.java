@@ -13,11 +13,10 @@ import java.util.function.Consumer;
  */
 @SuppressWarnings(value = {"unchecked", "rawtypes"})
 class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
-    private static final Comparator<Object> DEFAULT_COMP = (o1, o2) -> ((Comparable<Object>) o1).compareTo(o2);
     /**
      * Comparator.
      */
-    private Comparator<? super Key> comp = DEFAULT_COMP;
+    private Comparator comp = Comparator.naturalOrder();
     /**
      * 堆中最小的节点
      */
