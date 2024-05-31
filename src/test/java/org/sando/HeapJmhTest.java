@@ -3,6 +3,7 @@ package org.sando;
 import org.jheaps.AddressableHeap;
 import org.jheaps.dag.HollowHeap;
 import org.jheaps.tree.FibonacciHeap;
+import org.jheaps.tree.RankPairingHeap;
 import org.junit.jupiter.api.Test;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
@@ -34,15 +35,13 @@ import java.util.function.Consumer;
 public class HeapJmhTest {
     @Param({"10000"})
     private int seed;
-    private boolean print = true;
-    private static int size = 60_0000;
-    private static int bound = size / 2;
-    private static int decreaseCount = 4;
+    private static final int size = 20_0000;
+    private static final int bound = size / 2;
+    private static final int decreaseCount = 3000;
 
     @Benchmark
     @Test
     public void fiboHeapBench() {
-        seed += 3;
         Random rnd = new Random(seed);
         FiboHeap<IntKey> fiboHeap = FiboHeap.create(IntKey.class);
         changeKey(rnd, size, fiboHeap::offer, key -> {
@@ -50,16 +49,13 @@ public class HeapJmhTest {
                 return;
             }
             int diff = -rnd.nextInt(bound);
-            for (int i = 0; i < decreaseCount; i++) {
-                key.delta(diff);
-            }
+            key.delta(diff);
         }, fiboHeap::poll);
     }
 
     @Benchmark
     @Test
     public void indexHeapBench() {
-        seed += 3;
         Random rnd = new Random(seed);
         Heap<IntKey> heap = new Heap<>();
         changeKey(rnd, size, heap::offer, key -> {
@@ -67,15 +63,12 @@ public class HeapJmhTest {
                 return;
             }
             int diff = -rnd.nextInt(bound);
-            for (int i = 0; i < decreaseCount; i++) {
-                key.priorityChange(diff);
-            }
+            key.priorityChange(diff);
         }, heap::poll);
     }
 
     @Benchmark
-    public void fiboHeapBench2() {
-        seed += 3;
+    public void fiboHeapJHeap() {
         Random rnd = new Random(seed);
         AddressableHeap<IntKey, Void> fibonacciHeap = new FibonacciHeap<>();
         changeKey(rnd, size, key -> {
@@ -86,9 +79,26 @@ public class HeapJmhTest {
                 return;
             }
             int diff = -rnd.nextInt(bound);
-            for (int i = 0; i < decreaseCount; i++) {
-                handle.getKey().handleDelta(diff);
+            handle.getKey().handleDelta(diff);
+        }, () -> {
+            AddressableHeap.Handle<IntKey, Void> handle = fibonacciHeap.deleteMin();
+            handle.getKey().handle = null;
+        });
+    }
+
+//    @Benchmark
+    public void rankPairingHeap() {
+        Random rnd = new Random(seed);
+        AddressableHeap<IntKey, Void> fibonacciHeap = new RankPairingHeap<>();
+        changeKey(rnd, size, key -> {
+            key.handle = fibonacciHeap.insert(key);
+        }, key -> {
+            AddressableHeap.Handle<IntKey, Void> handle = key.handle;
+            if (handle == null) {
+                return;
             }
+            int diff = -rnd.nextInt(bound);
+            handle.getKey().handleDelta(diff);
         }, () -> {
             AddressableHeap.Handle<IntKey, Void> handle = fibonacciHeap.deleteMin();
             handle.getKey().handle = null;
@@ -98,7 +108,6 @@ public class HeapJmhTest {
     @Benchmark
     @Test
     public void hollowHeapBench() {
-        seed += 3;
 //        if (print) {
 //            System.out.println("hollowHeapBench" + seed);
 //            print = false;
@@ -113,9 +122,7 @@ public class HeapJmhTest {
                 return;
             }
             int diff = -rnd.nextInt(bound);
-            for (int i = 0; i < decreaseCount; i++) {
-                handle.getKey().handleDelta(diff);
-            }
+            handle.getKey().handleDelta(diff);
         }, () -> {
             AddressableHeap.Handle<IntKey, Void> handle = hollowHeap.deleteMin();
             handle.getKey().handle = null;
@@ -128,15 +135,17 @@ public class HeapJmhTest {
             int random = rnd.nextInt(size);
             IntKey key = new IntKey(random);
             consumer.accept(key);
-            int rate = rnd.nextInt(5);
-            if (rate < 3) {
+            int rate = rnd.nextInt(100);
+            if (rate < 60) {
                 decreaseKeyList.add(() -> {
                     decrease.accept(key);
                 });
             }
         }
         poll.run();
-        decreaseKeyList.forEach(Runnable::run);
+        for (int i = 0; i < decreaseCount; i++) {
+            decreaseKeyList.forEach(Runnable::run);
+        }
         for (int i = 0; i < size - 1; i++) {
             poll.run();
         }
