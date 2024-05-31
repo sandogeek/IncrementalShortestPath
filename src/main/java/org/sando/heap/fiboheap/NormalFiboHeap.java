@@ -344,7 +344,7 @@ class NormalFiboHeap<Key> extends AbstractQueue<Key> implements IFiboHeap<Key> {
      *
      * @param entry 变小的entry
      */
-    void decreaseKey(Entry<Key> entry) {
+    final void decreaseKey(Entry<Key> entry) {
         Entry<Key> parent = entry.parent;
         if (parent != null && smaller(entry, parent)) {
             cut(entry, parent, true);

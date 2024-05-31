@@ -23,6 +23,10 @@ public class Graph<K> {
      * 是否存在负权重的边
      */
     boolean hasNegativeEdge;
+    /**
+     * 是否是稠密图，false则表明是稀疏图
+     */
+    private boolean dense;
 
     /**
      * 构造函数
@@ -47,6 +51,10 @@ public class Graph<K> {
                 vertexEnd.addOutEdge(vertexStart, edge);
                 vertexStart.addInEdge(vertexEnd, edge);
             }
+        }
+        int vertexSize = vertexMap.size();
+        if (edges.size() > vertexSize * vertexSize) {
+            dense = true;
         }
     }
 
